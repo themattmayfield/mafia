@@ -17,6 +17,12 @@ interface Room {
 	leaderId: string;
 	status: "waiting" | "active" | "finished";
 	gamePhase?: "day" | "night";
+	phaseTransitionMessage?: string;
+	gameHistory?: Array<{
+		timestamp: number;
+		event: string;
+		description: string;
+	}>;
 	players: Player[];
 	currentVotes?: Array<{
 		voterId: string;
@@ -217,6 +223,17 @@ function NarratorView({ room }: { room: Room }) {
 				</div>
 			</div>
 
+			{/* Phase Transition Message */}
+			{room.phaseTransitionMessage && (
+				<div className="bg-gradient-to-r from-purple-100 to-indigo-100 p-4 rounded-lg border-2 border-purple-200 shadow-lg animate-pulse">
+					<div className="text-center">
+						<p className="text-lg font-medium text-purple-800 leading-relaxed">
+							{room.phaseTransitionMessage}
+						</p>
+					</div>
+				</div>
+			)}
+
 			{/* Last Elimination Result */}
 			{room.lastEliminationResult && (
 				<div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
@@ -305,15 +322,30 @@ function NarratorView({ room }: { room: Room }) {
 					);
 				})()}
 
-			{/* Phase Controls */}
-			<div className="bg-gray-50 p-4 rounded-lg">
-				<h3 className="text-lg font-semibold mb-3">Game Controls</h3>
+			{/* Narrator Guidance */}
+			<div className="bg-gradient-to-r from-purple-50 to-blue-50 p-4 rounded-lg border border-purple-200">
+				<h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+					🎭 Narrator Controls
+				</h3>
+				<div className="mb-3 p-3 bg-white rounded border border-purple-100">
+					<p className="text-sm text-gray-700 leading-relaxed">
+						<strong>Current Phase:</strong>{" "}
+						{room.gamePhase === "day" ? "🌞 Day Phase" : "🌙 Night Phase"}
+					</p>
+					<p className="text-sm text-gray-600 mt-1">
+						{room.gamePhase === "day"
+							? "Players discuss and vote to eliminate suspects. Execute votes when ready, then advance to night."
+							: "Special roles act in secret. Wait for all actions to complete, then execute night votes and advance to day."}
+					</p>
+				</div>
 				<div className="flex flex-wrap gap-2">
 					<button
 						onClick={handleAdvancePhase}
 						disabled={isAdvancing}
-						className="bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white px-4 py-2 rounded transition-colors"
+						title={`Advance to ${room.gamePhase === "day" ? "Night" : "Day"} phase`}
+						className="bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white px-4 py-2 rounded-lg font-medium transition-all transform hover:scale-105 shadow-sm flex items-center gap-2"
 					>
+						{room.gamePhase === "day" ? "🌙" : "🌞"}
 						{isAdvancing
 							? "Advancing..."
 							: `Start ${room.gamePhase === "day" ? "Night" : "Day"} Phase`}
@@ -322,9 +354,10 @@ function NarratorView({ room }: { room: Room }) {
 						room.currentVotes?.some((v) => v.voteType === "day") && (
 							<button
 								onClick={() => handleExecuteVotes("day")}
-								className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded transition-colors"
+								title="Execute the current day votes and eliminate the selected player"
+								className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg font-medium transition-all transform hover:scale-105 shadow-sm flex items-center gap-2"
 							>
-								Execute Day Votes
+								⚖️ Execute Day Votes
 							</button>
 						)}
 					{room.gamePhase === "night" &&
@@ -335,33 +368,99 @@ function NarratorView({ room }: { room: Room }) {
 								<button
 									onClick={() => handleExecuteVotes("mafia")}
 									disabled={!nightStatus.complete}
-									className={`px-4 py-2 rounded transition-colors text-white ${
+									className={`px-4 py-2 rounded-lg font-medium transition-all transform hover:scale-105 shadow-sm flex items-center gap-2 text-white ${
 										nightStatus.complete
 											? "bg-red-500 hover:bg-red-600"
 											: "bg-gray-400 cursor-not-allowed"
 									}`}
 									title={
 										nightStatus.complete
-											? "Execute mafia votes"
+											? "Execute mafia votes and reveal night results"
 											: `Waiting for: ${nightStatus.pending.join(", ")}`
 									}
 								>
-									Execute Mafia Votes
+									🔪{" "}
+									{nightStatus.complete
+										? "Execute Mafia Votes"
+										: "Waiting for Actions..."}
 								</button>
 							);
 						})()}
 					<button
 						onClick={handleEndGame}
 						disabled={isEnding}
-						className="bg-red-500 hover:bg-red-600 disabled:bg-red-300 text-white px-4 py-2 rounded transition-colors"
+						title="End the current game (emergency use only)"
+						className="bg-red-500 hover:bg-red-600 disabled:bg-red-300 text-white px-4 py-2 rounded-lg font-medium transition-all transform hover:scale-105 shadow-sm flex items-center gap-2"
 					>
-						{isEnding ? "Ending..." : "End Game"}
+						🏁 {isEnding ? "Ending..." : "End Game"}
 					</button>
 				</div>
-				<p className="text-sm text-gray-600 mt-2">
-					Current phase:{" "}
-					<span className="font-medium capitalize">{room.gamePhase}</span>
-				</p>
+
+				{/* Game Status Summary */}
+				<div className="mt-3 p-3 bg-white rounded border border-purple-100">
+					<div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+						<div className="text-center">
+							<div className="font-semibold text-green-600">
+								{
+									room.players.filter(
+										(p) => p.id !== room.leaderId && p.isAlive,
+									).length
+								}
+							</div>
+							<div className="text-gray-600">Players Alive</div>
+						</div>
+						<div className="text-center">
+							<div className="font-semibold text-red-600">
+								{
+									room.players.filter(
+										(p) =>
+											p.id !== room.leaderId && p.role === "mafia" && p.isAlive,
+									).length
+								}
+							</div>
+							<div className="text-gray-600">Mafia Alive</div>
+						</div>
+						<div className="text-center">
+							<div className="font-semibold text-blue-600">
+								{room.currentVotes?.length || 0}
+							</div>
+							<div className="text-gray-600">Current Votes</div>
+						</div>
+						<div className="text-center">
+							<div className="font-semibold text-purple-600">
+								{room.nightActions?.filter((a) => a.isLocked).length || 0}
+							</div>
+							<div className="text-gray-600">Night Actions</div>
+						</div>
+					</div>
+				</div>
+
+				{/* Game History - Collapsible */}
+				{room.gameHistory && room.gameHistory.length > 0 && (
+					<details className="mt-3">
+						<summary className="cursor-pointer text-sm font-medium text-purple-800 hover:text-purple-600 p-2 bg-white rounded border border-purple-100">
+							📜 Game History ({room.gameHistory.length} events)
+						</summary>
+						<div className="mt-2 p-3 bg-white rounded border border-purple-100 max-h-32 overflow-y-auto">
+							<div className="space-y-1 text-xs">
+								{room.gameHistory
+									.slice(-10) // Show last 10 events
+									.reverse()
+									.map((event, index) => (
+										<div
+											key={index}
+											className="flex justify-between items-center text-gray-600"
+										>
+											<span>{event.description}</span>
+											<span className="text-gray-400">
+												{new Date(event.timestamp).toLocaleTimeString()}
+											</span>
+										</div>
+									))}
+							</div>
+						</div>
+					</details>
+				)}
 			</div>
 		</div>
 	);

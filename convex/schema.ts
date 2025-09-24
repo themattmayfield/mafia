@@ -11,6 +11,16 @@ const schema = defineSchema({
 			v.literal("finished"),
 		),
 		gamePhase: v.optional(v.union(v.literal("day"), v.literal("night"))),
+		phaseTransitionMessage: v.optional(v.string()),
+		gameHistory: v.optional(
+			v.array(
+				v.object({
+					timestamp: v.number(),
+					event: v.string(),
+					description: v.string(),
+				}),
+			),
+		),
 		players: v.array(
 			v.object({
 				id: v.string(),

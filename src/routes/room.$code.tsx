@@ -117,79 +117,194 @@ function RoomPage() {
 		return (
 			<div className="p-8 max-w-4xl mx-auto">
 				<div className="text-center space-y-6">
-					<h2 className="text-3xl font-bold">Game Over!</h2>
+					{/* Victory Animation */}
+					<div className="relative">
+						<h2 className="text-4xl font-bold mb-4 animate-pulse">
+							🏆 Game Over! 🏆
+						</h2>
+						<div className="absolute -top-2 left-1/2 transform -translate-x-1/2 text-2xl animate-bounce">
+							✨
+						</div>
+					</div>
+
 					{(() => {
 						// Exclude narrator from win condition display
 						const actualPlayers = room.players.filter(
 							(p) => p.id !== room.leaderId,
 						);
+						const allPlayers = actualPlayers;
 						const alivePlayers = actualPlayers.filter((p) => p.isAlive);
+						const eliminatedPlayers = actualPlayers.filter((p) => !p.isAlive);
 						const aliveMafia = alivePlayers.filter((p) => p.role === "mafia");
 						const aliveTownspeople = alivePlayers.filter(
 							(p) => p.role !== "mafia",
 						);
+						const totalMafia = allPlayers.filter((p) => p.role === "mafia");
+						const eliminatedMafia = eliminatedPlayers.filter(
+							(p) => p.role === "mafia",
+						);
 
 						let winner = "";
 						let winnerColor = "";
+						let winnerBg = "";
+						let explanation = "";
+						let emoji = "";
 
 						if (
 							aliveMafia.length >= aliveTownspeople.length &&
 							aliveMafia.length > 0
 						) {
-							winner = "Mafia Wins!";
-							winnerColor = "text-red-600";
+							winner = "🌙 Mafia Victory! 🌙";
+							winnerColor = "text-red-100";
+							winnerBg = "bg-gradient-to-r from-red-600 to-red-800";
+							explanation = `The Mafia have taken control! With ${aliveMafia.length} Mafia members still alive and only ${aliveTownspeople.length} townspeople remaining, the town has fallen to darkness.`;
+							emoji = "🔥";
 						} else if (aliveMafia.length === 0) {
-							winner = "Townspeople Win!";
-							winnerColor = "text-green-600";
+							winner = "🌅 Townspeople Victory! 🌅";
+							winnerColor = "text-green-100";
+							winnerBg = "bg-gradient-to-r from-green-600 to-green-800";
+							explanation = `Justice prevails! The brave townspeople have successfully eliminated all ${totalMafia.length} Mafia member${totalMafia.length > 1 ? "s" : ""} and saved their community.`;
+							emoji = "🎉";
 						} else {
 							winner = "Game Ended";
-							winnerColor = "text-gray-600";
+							winnerColor = "text-gray-100";
+							winnerBg = "bg-gradient-to-r from-gray-600 to-gray-800";
+							explanation = "The game has ended.";
+							emoji = "🏁";
 						}
 
 						return (
-							<div className={`text-2xl font-bold ${winnerColor} mb-4`}>
-								{winner}
+							<div className="space-y-4">
+								<div
+									className={`${winnerBg} rounded-2xl p-6 shadow-2xl border border-opacity-30`}
+								>
+									<div className={`text-3xl font-bold ${winnerColor} mb-3`}>
+										{winner}
+									</div>
+									<p
+										className={`text-lg ${winnerColor.replace("100", "200")} leading-relaxed`}
+									>
+										{explanation}
+									</p>
+								</div>
+
+								{/* Game Statistics */}
+								<div className="bg-gray-50 rounded-xl p-4 border shadow-sm">
+									<h4 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
+										📊 Game Statistics
+									</h4>
+									<div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+										<div className="text-center p-2 bg-white rounded border">
+											<div className="font-semibold text-gray-800">
+												{allPlayers.length}
+											</div>
+											<div className="text-gray-600">Total Players</div>
+										</div>
+										<div className="text-center p-2 bg-white rounded border">
+											<div className="font-semibold text-red-600">
+												{totalMafia.length}
+											</div>
+											<div className="text-gray-600">Mafia Members</div>
+										</div>
+										<div className="text-center p-2 bg-white rounded border">
+											<div className="font-semibold text-orange-600">
+												{eliminatedPlayers.length}
+											</div>
+											<div className="text-gray-600">Total Eliminated</div>
+										</div>
+										<div className="text-center p-2 bg-white rounded border">
+											<div className="font-semibold text-green-600">
+												{alivePlayers.length}
+											</div>
+											<div className="text-gray-600">Survivors</div>
+										</div>
+										<div className="text-center p-2 bg-white rounded border">
+											<div className="font-semibold text-red-800">
+												{eliminatedMafia.length}
+											</div>
+											<div className="text-gray-600">Mafia Eliminated</div>
+										</div>
+										<div className="text-center p-2 bg-white rounded border">
+											<div className="font-semibold text-blue-600">
+												{allPlayers.filter((p) => p.role === "detective")
+													.length > 0
+													? "✓"
+													: "✗"}
+											</div>
+											<div className="text-gray-600">Detective Present</div>
+										</div>
+									</div>
+								</div>
 							</div>
 						);
 					})()}
-					<div className="bg-gray-50 p-6 rounded-lg">
-						<h3 className="text-xl font-semibold mb-4">Final Results</h3>
+					<div className="bg-gray-50 p-6 rounded-xl shadow-sm border">
+						<h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
+							🎭 Final Player Results
+						</h3>
 						<div className="grid gap-3">
 							{room.players
 								.filter((player) => player.id !== room.leaderId) // Exclude narrator
+								.sort((a, b) => {
+									// Sort: Survivors first, then by role (mafia first, then special roles)
+									if (a.isAlive !== b.isAlive) return b.isAlive ? 1 : -1;
+									const roleOrder: Record<string, number> = {
+										mafia: 0,
+										detective: 1,
+										doctor: 2,
+										citizen: 3,
+									};
+									return (
+										(roleOrder[a.role || ""] || 3) -
+										(roleOrder[b.role || ""] || 3)
+									);
+								})
 								.map((player) => (
 									<div
 										key={player.id}
-										className={`p-3 rounded border ${
+										className={`p-4 rounded-lg border-2 transition-all ${
 											player.isAlive
-												? "bg-green-50 border-green-200"
-												: "bg-red-50 border-red-200"
+												? "bg-gradient-to-r from-green-50 to-green-100 border-green-300 shadow-sm"
+												: "bg-gradient-to-r from-red-50 to-red-100 border-red-300 shadow-sm"
 										}`}
 									>
 										<div className="flex items-center justify-between">
-											<span className="font-medium">{player.name}</span>
-											<div className="flex gap-2">
+											<div className="flex items-center gap-3">
+												<div
+													className={`w-3 h-3 rounded-full ${player.isAlive ? "bg-green-500" : "bg-red-500"}`}
+												/>
+												<span className="font-semibold text-gray-800">
+													{player.name}
+												</span>
+											</div>
+											<div className="flex gap-2 items-center">
 												<span
-													className={`text-xs px-2 py-1 rounded ${
+													className={`text-sm px-3 py-1 rounded-full font-medium ${
 														player.role === "mafia"
-															? "bg-red-100 text-red-800"
+															? "bg-red-200 text-red-900 border border-red-300"
 															: player.role === "detective"
-																? "bg-blue-100 text-blue-800"
+																? "bg-blue-200 text-blue-900 border border-blue-300"
 																: player.role === "doctor"
-																	? "bg-green-100 text-green-800"
-																	: "bg-gray-100 text-gray-800"
+																	? "bg-emerald-200 text-emerald-900 border border-emerald-300"
+																	: "bg-gray-200 text-gray-900 border border-gray-300"
 													}`}
 												>
-													{player.role}
+													{player.role === "mafia"
+														? "🔪 Mafia"
+														: player.role === "detective"
+															? "🔍 Detective"
+															: player.role === "doctor"
+																? "⚕️ Doctor"
+																: "👥 Citizen"}
 												</span>
 												<span
-													className={`text-xs px-2 py-1 rounded ${
+													className={`text-sm px-3 py-1 rounded-full font-medium ${
 														player.isAlive
-															? "bg-green-100 text-green-800"
-															: "bg-red-100 text-red-800"
+															? "bg-green-200 text-green-900 border border-green-300"
+															: "bg-red-200 text-red-900 border border-red-300"
 													}`}
 												>
-													{player.isAlive ? "Survived" : "Eliminated"}
+													{player.isAlive ? "✅ Survived" : "💀 Eliminated"}
 												</span>
 											</div>
 										</div>
@@ -197,12 +312,63 @@ function RoomPage() {
 								))}
 						</div>
 					</div>
-					<button
-						onClick={() => (window.location.href = "/")}
-						className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded transition-colors"
-					>
-						Create New Game
-					</button>
+					<div className="flex flex-col sm:flex-row gap-4 justify-center">
+						<button
+							onClick={() => {
+								// Reset the room to waiting state with same players
+								const restartGame = async () => {
+									try {
+										const response = await fetch("/api/rooms/restart", {
+											method: "POST",
+											headers: { "Content-Type": "application/json" },
+											body: JSON.stringify({
+												code: room.code,
+												leaderId: room.leaderId,
+											}),
+										});
+										if (response.ok) {
+											window.location.reload();
+										}
+									} catch (error) {
+										console.error("Failed to restart game:", error);
+									}
+								};
+								restartGame();
+							}}
+							className="bg-green-500 hover:bg-green-600 text-white px-8 py-3 rounded-xl font-semibold transition-all transform hover:scale-105 shadow-lg flex items-center gap-2"
+						>
+							🎮 Play Again with Same Players
+						</button>
+						<button
+							onClick={() => (window.location.href = "/")}
+							className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-3 rounded-xl font-semibold transition-all transform hover:scale-105 shadow-lg flex items-center gap-2"
+						>
+							🏠 Create New Game
+						</button>
+						<button
+							onClick={() => {
+								const gameData = {
+									winner:
+										room.status === "finished" ? "game completed" : "unknown",
+									players: room.players
+										.filter((p) => p.id !== room.leaderId)
+										.map((p) => ({
+											name: p.name,
+											role: p.role,
+											survived: p.isAlive,
+										})),
+									code: room.code,
+								};
+								navigator.clipboard.writeText(
+									JSON.stringify(gameData, null, 2),
+								);
+								alert("Game results copied to clipboard!");
+							}}
+							className="bg-purple-500 hover:bg-purple-600 text-white px-8 py-3 rounded-xl font-semibold transition-all transform hover:scale-105 shadow-lg flex items-center gap-2"
+						>
+							📋 Copy Results
+						</button>
+					</div>
 				</div>
 			</div>
 		);

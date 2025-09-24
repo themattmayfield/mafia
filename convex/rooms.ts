@@ -353,8 +353,34 @@ export const advancePhase = mutation({
 		const currentPhase = room.gamePhase || "day";
 		const nextPhase = currentPhase === "day" ? "night" : "day";
 
+		// Generate atmospheric phase transition messages
+		const transitionMessages = {
+			toNight: [
+				"🌙 Night falls over the town... The streets grow quiet as shadows begin to move.",
+				"🌃 Darkness descends upon the village. The Mafia emerges from hiding.",
+				"🌌 The town sleeps, but evil never rests. Night has begun.",
+				"🌙 Under the cover of darkness, the Mafia begins their hunt.",
+			],
+			toDay: [
+				"🌅 Dawn breaks over the town. What secrets did the night reveal?",
+				"☀️ Morning light exposes the night's events. The town gathers to learn their fate.",
+				"🌄 A new day begins. The townspeople emerge to discover what happened in the darkness.",
+				"🌞 The sun rises, bringing truth and consequence to light.",
+			],
+		};
+
+		const randomMessage =
+			nextPhase === "night"
+				? transitionMessages.toNight[
+						Math.floor(Math.random() * transitionMessages.toNight.length)
+					]
+				: transitionMessages.toDay[
+						Math.floor(Math.random() * transitionMessages.toDay.length)
+					];
+
 		const updateData: any = {
 			gamePhase: nextPhase,
+			phaseTransitionMessage: randomMessage,
 		};
 
 		// Clear night actions when transitioning from night to day
@@ -368,6 +394,16 @@ export const advancePhase = mutation({
 		if (currentPhase === "day" && nextPhase === "night") {
 			updateData.lastEliminationResult = "";
 		}
+
+		// Add to game history
+		const gameHistory = room.gameHistory || [];
+		gameHistory.push({
+			timestamp: Date.now(),
+			event: nextPhase === "night" ? "phase_night" : "phase_day",
+			description:
+				nextPhase === "night" ? "Night phase began" : "Day phase began",
+		});
+		updateData.gameHistory = gameHistory;
 
 		await ctx.db.patch(room._id, updateData);
 
@@ -569,18 +605,45 @@ export const executeVotes = mutation({
 				const doctor = room.players.find(
 					(p) => p.id === doctorProtection.playerId,
 				);
-				eliminationResult = `The mafia attempted to eliminate ${protectedPlayer?.name}, but they were protected by the doctor.`;
+				const protectionStories = [
+					`🛡️ The town awakens to a miracle! ${protectedPlayer?.name} was marked for death, but the doctor's watchful eyes and steady hands saved them from the shadows.`,
+					`✨ Fortune smiled upon ${protectedPlayer?.name}! The doctor's intervention turned what should have been a tragedy into hope.`,
+					`⚕️ The Mafia crept through the darkness toward ${protectedPlayer?.name}, but found only empty air—the doctor had spirited them away to safety.`,
+					`🙏 ${protectedPlayer?.name} draws breath this morning only by grace of the doctor's protection. The town has been spared a loss.`,
+				];
+				eliminationResult =
+					protectionStories[
+						Math.floor(Math.random() * protectionStories.length)
+					];
 			} else {
 				const eliminatedPlayer = room.players.find(
 					(p) => p.id === eliminatedPlayerId,
 				);
-				eliminationResult = `${eliminatedPlayer?.name} was eliminated by the mafia.`;
+				const mafiaEliminationStories = [
+					`💀 The town wakes to find ${eliminatedPlayer?.name} cold and still. The Mafia's work is done.`,
+					`⚰️ ${eliminatedPlayer?.name} did not survive the night. Their silence will haunt the town forever.`,
+					`🕯️ The morning reveals tragedy: ${eliminatedPlayer?.name} has been claimed by the darkness.`,
+					`💔 ${eliminatedPlayer?.name}'s house stands empty this morning. The Mafia has struck again.`,
+				];
+				eliminationResult =
+					mafiaEliminationStories[
+						Math.floor(Math.random() * mafiaEliminationStories.length)
+					];
 			}
 		} else if (args.voteType === "day" && eliminatedPlayerId) {
 			const eliminatedPlayer = room.players.find(
 				(p) => p.id === eliminatedPlayerId,
 			);
-			eliminationResult = `${eliminatedPlayer?.name} was eliminated by majority vote.`;
+			const dayEliminationStories = [
+				`⚖️ The town has spoken! ${eliminatedPlayer?.name} was cast out by majority decision.`,
+				`🗳️ After heated debate, the townspeople chose ${eliminatedPlayer?.name}'s fate. Justice... or mistake?`,
+				`👥 The voices of the town rang as one: ${eliminatedPlayer?.name} must go. Let history judge this decision.`,
+				`🏛️ Democracy has decided: ${eliminatedPlayer?.name} was eliminated by the will of the people.`,
+			];
+			eliminationResult =
+				dayEliminationStories[
+					Math.floor(Math.random() * dayEliminationStories.length)
+				];
 		}
 
 		// Eliminate the player (if not protected)
@@ -598,10 +661,25 @@ export const executeVotes = mutation({
 		// Check win condition
 		const winCondition = checkWinCondition(updatedPlayers, room.leaderId);
 
+		// Add elimination to game history
+		const gameHistory = room.gameHistory || [];
+		if (actualEliminatedPlayerId) {
+			const eliminatedPlayerName = room.players.find(
+				(p) => p.id === actualEliminatedPlayerId,
+			)?.name;
+			gameHistory.push({
+				timestamp: Date.now(),
+				event:
+					args.voteType === "day" ? "day_elimination" : "mafia_elimination",
+				description: `${eliminatedPlayerName} was eliminated during ${args.voteType} phase`,
+			});
+		}
+
 		const updateData: any = {
 			players: updatedPlayers,
 			currentVotes: remainingVotes,
 			lastEliminationResult: eliminationResult,
+			gameHistory: gameHistory,
 		};
 
 		// End game if win condition is met
