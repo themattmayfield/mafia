@@ -3,6 +3,9 @@ import { useState } from "react";
 import toast from "react-hot-toast";
 import { getUserId } from "~/utils/user";
 import { api } from "../../convex/_generated/api";
+import { Button } from "~/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { GameBadge } from "~/components/ui/game-badge";
 
 interface Player {
 	id: string;
@@ -228,54 +231,51 @@ function NarratorView({ room }: { room: Room }) {
 
 	return (
 		<div className="space-y-6">
-			<div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
-				<h2 className="text-xl font-bold text-purple-800 mb-2">
-					Narrator View
-				</h2>
-				<div className="text-sm">
-					<span className="font-medium">Phase:</span>
-					<span className="ml-2 px-2 py-1 bg-purple-100 rounded capitalize">
-						{room.gamePhase}
-					</span>
-				</div>
-			</div>
+			<Card className="bg-purple-50 border-purple-200">
+				<CardHeader>
+					<CardTitle className="text-purple-800">🎭 Narrator View</CardTitle>
+				</CardHeader>
+				<CardContent>
+					<div className="text-sm">
+						<span className="font-medium">Phase:</span>
+						<span className="ml-2 px-2 py-1 bg-purple-100 rounded capitalize text-purple-800">
+							{room.gamePhase}
+						</span>
+					</div>
+				</CardContent>
+			</Card>
 
 			{/* All Players with Roles */}
-			<div>
-				<h3 className="text-lg font-semibold mb-3">All Players & Roles</h3>
-				<div className="grid gap-2">
-					{room.players
-						.filter((player) => player.id !== room.leaderId) // Exclude narrator
-						.map((player) => (
-							<div
-								key={player.id}
-								className={`p-3 rounded-lg border ${
-									player.isAlive ? "bg-white" : "bg-gray-100 opacity-60"
-								}`}
-							>
-								<div className="flex items-center justify-between">
-									<span className="font-medium">{player.name}</span>
-									<div className="flex gap-2">
-										<span
-											className={`text-xs px-2 py-1 rounded ${getRoleColor(player.role)}`}
-										>
-											{player.role}
-										</span>
-										<span
-											className={`text-xs px-2 py-1 rounded ${
-												player.isAlive
-													? "bg-green-100 text-green-800"
-													: "bg-red-100 text-red-800"
-											}`}
-										>
-											{player.isAlive ? "Alive" : "Dead"}
-										</span>
+			<Card>
+				<CardHeader>
+					<CardTitle>👥 All Players & Roles</CardTitle>
+				</CardHeader>
+				<CardContent>
+					<div className="grid gap-2">
+						{room.players
+							.filter((player) => player.id !== room.leaderId) // Exclude narrator
+							.map((player) => (
+								<div
+									key={player.id}
+									className={`p-3 rounded-lg border ${
+										player.isAlive ? "bg-white" : "bg-gray-100 opacity-60"
+									}`}
+								>
+									<div className="flex items-center justify-between">
+										<span className="font-medium">{player.name}</span>
+										<div className="flex gap-2">
+											<GameBadge type="role" value={player.role || "citizen"} />
+											<GameBadge
+												type="status"
+												value={player.isAlive ? "Alive" : "Dead"}
+											/>
+										</div>
 									</div>
 								</div>
-							</div>
-						))}
-				</div>
-			</div>
+							))}
+					</div>
+				</CardContent>
+			</Card>
 
 			{/* Phase Transition Message */}
 			{room.phaseTransitionMessage && (
@@ -290,51 +290,59 @@ function NarratorView({ room }: { room: Room }) {
 
 			{/* Last Elimination Result */}
 			{room.lastEliminationResult && (
-				<div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
-					<h3 className="text-lg font-semibold text-orange-800 mb-2">
-						Latest Result
-					</h3>
-					<p className="text-sm text-orange-700">
-						{room.lastEliminationResult}
-					</p>
-				</div>
+				<Card className="bg-orange-50 border-orange-200">
+					<CardHeader>
+						<CardTitle className="text-orange-800">📰 Latest Result</CardTitle>
+					</CardHeader>
+					<CardContent>
+						<p className="text-sm text-orange-700">
+							{room.lastEliminationResult}
+						</p>
+					</CardContent>
+				</Card>
 			)}
 
 			{/* Current Votes */}
 			{room.currentVotes && room.currentVotes.length > 0 && (
-				<div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-					<h3 className="text-lg font-semibold text-blue-800 mb-3">
-						Current Votes
-					</h3>
-					<div className="space-y-2">
-						{room.currentVotes.map((vote, index) => {
-							const voter = room.players.find((p) => p.id === vote.voterId);
-							const target = room.players.find((p) => p.id === vote.targetId);
-							return (
-								<div key={index} className="text-sm">
-									<span className="font-medium">{voter?.name}</span>
-									{vote.targetId === "ABSTAIN" ? (
-										<span className="text-gray-600">
-											{" "}
-											abstained from voting
-										</span>
-									) : (
-										<>
-											<span className="text-blue-600">
+				<Card className="bg-blue-50 border-blue-200">
+					<CardHeader>
+						<CardTitle className="text-blue-800">🗳️ Current Votes</CardTitle>
+					</CardHeader>
+					<CardContent>
+						<div className="space-y-2">
+							{room.currentVotes.map((vote, index) => {
+								const voter = room.players.find((p) => p.id === vote.voterId);
+								const target = room.players.find((p) => p.id === vote.targetId);
+								return (
+									<div key={index} className="text-sm">
+										<span className="font-medium">{voter?.name}</span>
+										{vote.targetId === "ABSTAIN" ? (
+											<span className="text-gray-600">
 												{" "}
-												voted to eliminate{" "}
+												abstained from voting
 											</span>
-											<span className="font-medium">{target?.name}</span>
-										</>
-									)}
-									<span className="text-xs ml-2 px-2 py-1 bg-blue-100 rounded">
-										{vote.voteType}
-									</span>
-								</div>
-							);
-						})}
-					</div>
-				</div>
+										) : (
+											<>
+												<span className="text-blue-600">
+													{" "}
+													voted to eliminate{" "}
+												</span>
+												<span className="font-medium">{target?.name}</span>
+											</>
+										)}
+										<GameBadge
+											type="status"
+											value={
+												vote.voteType === "day" ? "Day Vote" : "Mafia Vote"
+											}
+											className="ml-2"
+										/>
+									</div>
+								);
+							})}
+						</div>
+					</CardContent>
+				</Card>
 			)}
 
 			{/* Night Actions Status */}
@@ -342,232 +350,239 @@ function NarratorView({ room }: { room: Room }) {
 				(() => {
 					const nightStatus = getNightActionsStatus();
 					return (
-						<div
-							className={`p-4 rounded-lg border ${
+						<Card
+							className={
 								nightStatus.complete
 									? "bg-green-50 border-green-200"
 									: "bg-yellow-50 border-yellow-200"
-							}`}
+							}
 						>
-							<h3
-								className={`text-lg font-semibold mb-2 ${
-									nightStatus.complete ? "text-green-800" : "text-yellow-800"
-								}`}
-							>
-								Night Actions Status
-							</h3>
-							{nightStatus.complete ? (
-								<p className="text-sm text-green-600">
-									✅ All night actions complete - Ready to execute votes
-								</p>
-							) : (
-								<div>
-									<p className="text-sm text-yellow-600 mb-2">
-										⏳ Waiting for:
+							<CardHeader>
+								<CardTitle
+									className={
+										nightStatus.complete ? "text-green-800" : "text-yellow-800"
+									}
+								>
+									🌙 Night Actions Status
+								</CardTitle>
+							</CardHeader>
+							<CardContent>
+								{nightStatus.complete ? (
+									<p className="text-sm text-green-600">
+										✅ All night actions complete - Ready to execute votes
 									</p>
-									<ul className="text-sm text-yellow-700 ml-4">
-										{nightStatus.pending.map((pending, index) => (
-											<li key={index}>• {pending}</li>
-										))}
-									</ul>
-								</div>
-							)}
-						</div>
+								) : (
+									<div>
+										<p className="text-sm text-yellow-600 mb-2">
+											⏳ Waiting for:
+										</p>
+										<ul className="text-sm text-yellow-700 ml-4">
+											{nightStatus.pending.map((pending, index) => (
+												<li key={index}>• {pending}</li>
+											))}
+										</ul>
+									</div>
+								)}
+							</CardContent>
+						</Card>
 					);
 				})()}
 
 			{/* Narrator Guidance */}
-			<div className="bg-gradient-to-r from-purple-50 to-blue-50 p-4 rounded-lg border border-purple-200">
-				<h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-					🎭 Narrator Controls
-				</h3>
-				<div className="mb-3 p-3 bg-white rounded border border-purple-100">
-					<p className="text-sm text-gray-700 leading-relaxed">
-						<strong>Current Phase:</strong>{" "}
-						{room.gamePhase === "day" ? "🌞 Day Phase" : "🌙 Night Phase"}
-					</p>
-					<p className="text-sm text-gray-600 mt-1">
-						{room.gamePhase === "day"
-							? "Players discuss and vote to eliminate suspects. Execute votes when ready, then advance to night."
-							: "Special roles act in secret. Wait for all actions to complete, then execute night votes and advance to day."}
-					</p>
-				</div>
-				<div className="flex flex-wrap gap-2">
-					<button
-						onClick={handleAdvancePhase}
-						disabled={isAdvancing}
-						title={`Advance to ${room.gamePhase === "day" ? "Night" : "Day"} phase`}
-						className="bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white px-4 py-2 rounded-lg font-medium transition-all transform hover:scale-105 shadow-sm flex items-center gap-2"
-					>
-						{room.gamePhase === "day" ? "🌙" : "🌞"}
-						{isAdvancing
-							? "Advancing..."
-							: `Start ${room.gamePhase === "day" ? "Night" : "Day"} Phase`}
-					</button>
-					{room.gamePhase === "day" &&
-						room.currentVotes?.some((v) => v.voteType === "day") && (
-							<button
-								onClick={() => handleExecuteVotes("day")}
-								title="Execute the current day votes and eliminate the selected player"
-								className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg font-medium transition-all transform hover:scale-105 shadow-sm flex items-center gap-2"
-							>
-								⚖️ Execute Day Votes
-							</button>
-						)}
-					{room.gamePhase === "night" &&
-						room.currentVotes?.some((v) => v.voteType === "mafia") &&
-						(() => {
-							const nightStatus = getNightActionsStatus();
-							return (
-								<button
-									onClick={() => handleExecuteVotes("mafia")}
-									disabled={!nightStatus.complete}
-									className={`px-4 py-2 rounded-lg font-medium transition-all transform hover:scale-105 shadow-sm flex items-center gap-2 text-white ${
-										nightStatus.complete
-											? "bg-red-500 hover:bg-red-600"
-											: "bg-gray-400 cursor-not-allowed"
-									}`}
-									title={
-										nightStatus.complete
-											? "Execute mafia votes and reveal night results"
-											: `Waiting for: ${nightStatus.pending.join(", ")}`
-									}
+			<Card className="bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200">
+				<CardHeader>
+					<CardTitle className="flex items-center gap-2">
+						🎭 Narrator Controls
+					</CardTitle>
+				</CardHeader>
+				<CardContent>
+					<div className="mb-3 p-3 bg-white rounded border border-purple-100">
+						<p className="text-sm text-gray-700 leading-relaxed">
+							<strong>Current Phase:</strong>{" "}
+							{room.gamePhase === "day" ? "🌞 Day Phase" : "🌙 Night Phase"}
+						</p>
+						<p className="text-sm text-gray-600 mt-1">
+							{room.gamePhase === "day"
+								? "Players discuss and vote to eliminate suspects. Execute votes when ready, then advance to night."
+								: "Special roles act in secret. Wait for all actions to complete, then execute night votes and advance to day."}
+						</p>
+					</div>
+					<div className="flex flex-wrap gap-2">
+						<Button
+							onClick={handleAdvancePhase}
+							disabled={isAdvancing}
+							title={`Advance to ${room.gamePhase === "day" ? "Night" : "Day"} phase`}
+							className="transition-all transform hover:scale-105"
+						>
+							{room.gamePhase === "day" ? "🌙" : "🌞"}
+							{isAdvancing
+								? "Advancing..."
+								: `Start ${room.gamePhase === "day" ? "Night" : "Day"} Phase`}
+						</Button>
+						{room.gamePhase === "day" &&
+							room.currentVotes?.some((v) => v.voteType === "day") && (
+								<Button
+									onClick={() => handleExecuteVotes("day")}
+									title="Execute the current day votes and eliminate the selected player"
+									variant="secondary"
+									className="bg-yellow-500 hover:bg-yellow-600 text-white transition-all transform hover:scale-105"
 								>
-									🔪{" "}
-									{nightStatus.complete
-										? "Execute Mafia Votes"
-										: "Waiting for Actions..."}
-								</button>
-							);
-						})()}
-					<button
-						onClick={handleEndGame}
-						disabled={isEnding}
-						title="End the current game (emergency use only)"
-						className="bg-red-500 hover:bg-red-600 disabled:bg-red-300 text-white px-4 py-2 rounded-lg font-medium transition-all transform hover:scale-105 shadow-sm flex items-center gap-2"
-					>
-						🏁 {isEnding ? "Ending..." : "End Game"}
-					</button>
-				</div>
+									⚖️ Execute Day Votes
+								</Button>
+							)}
+						{room.gamePhase === "night" &&
+							room.currentVotes?.some((v) => v.voteType === "mafia") &&
+							(() => {
+								const nightStatus = getNightActionsStatus();
+								return (
+									<Button
+										onClick={() => handleExecuteVotes("mafia")}
+										disabled={!nightStatus.complete}
+										className={`transition-all transform hover:scale-105 text-white ${
+											nightStatus.complete
+												? "bg-red-500 hover:bg-red-600"
+												: "bg-gray-400 cursor-not-allowed"
+										}`}
+										title={
+											nightStatus.complete
+												? "Execute mafia votes and reveal night results"
+												: `Waiting for: ${nightStatus.pending.join(", ")}`
+										}
+									>
+										🔪{" "}
+										{nightStatus.complete
+											? "Execute Mafia Votes"
+											: "Waiting for Actions..."}
+									</Button>
+								);
+							})()}
+						<Button
+							onClick={handleEndGame}
+							disabled={isEnding}
+							title="End the current game (emergency use only)"
+							variant="destructive"
+							className="transition-all transform hover:scale-105"
+						>
+							🏁 {isEnding ? "Ending..." : "End Game"}
+						</Button>
+					</div>
 
-				{/* Game Status Summary */}
-				<div className="mt-3 p-3 bg-white rounded border border-purple-100">
-					<div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-						<div className="text-center">
-							<div className="font-semibold text-green-600">
-								{
-									room.players.filter(
-										(p) => p.id !== room.leaderId && p.isAlive,
-									).length
-								}
+					{/* Game Status Summary */}
+					<div className="mt-3 p-3 bg-white rounded border border-purple-100">
+						<div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+							<div className="text-center">
+								<div className="font-semibold text-green-600">
+									{
+										room.players.filter(
+											(p) => p.id !== room.leaderId && p.isAlive,
+										).length
+									}
+								</div>
+								<div className="text-gray-600">Players Alive</div>
 							</div>
-							<div className="text-gray-600">Players Alive</div>
-						</div>
-						<div className="text-center">
-							<div className="font-semibold text-red-600">
-								{
-									room.players.filter(
-										(p) =>
-											p.id !== room.leaderId && p.role === "mafia" && p.isAlive,
-									).length
-								}
+							<div className="text-center">
+								<div className="font-semibold text-red-600">
+									{
+										room.players.filter(
+											(p) =>
+												p.id !== room.leaderId &&
+												p.role === "mafia" &&
+												p.isAlive,
+										).length
+									}
+								</div>
+								<div className="text-gray-600">Mafia Alive</div>
 							</div>
-							<div className="text-gray-600">Mafia Alive</div>
-						</div>
-						<div className="text-center">
-							<div className="font-semibold text-blue-600">
-								{room.currentVotes?.length || 0}
+							<div className="text-center">
+								<div className="font-semibold text-blue-600">
+									{room.currentVotes?.length || 0}
+								</div>
+								<div className="text-gray-600">Current Votes</div>
 							</div>
-							<div className="text-gray-600">Current Votes</div>
-						</div>
-						<div className="text-center">
-							<div className="font-semibold text-purple-600">
-								{room.nightActions?.filter((a) => a.isLocked).length || 0}
+							<div className="text-center">
+								<div className="font-semibold text-purple-600">
+									{room.nightActions?.filter((a) => a.isLocked).length || 0}
+								</div>
+								<div className="text-gray-600">Night Actions</div>
 							</div>
-							<div className="text-gray-600">Night Actions</div>
 						</div>
 					</div>
-				</div>
 
-				{/* Game History - Collapsible */}
-				{room.gameHistory && room.gameHistory.length > 0 && (
+					{/* Game History - Collapsible */}
+					{room.gameHistory && room.gameHistory.length > 0 && (
+						<details className="mt-3">
+							<summary className="cursor-pointer text-sm font-medium text-purple-800 hover:text-purple-600 p-2 bg-white rounded border border-purple-100">
+								📜 Game History ({room.gameHistory.length} events)
+							</summary>
+							<div className="mt-2 p-3 bg-white rounded border border-purple-100 max-h-32 overflow-y-auto">
+								<div className="space-y-1 text-xs">
+									{room.gameHistory
+										.slice(-10) // Show last 10 events
+										.reverse()
+										.map((event, index) => (
+											<div
+												key={index}
+												className="flex justify-between items-center text-gray-600"
+											>
+												<span>{event.description}</span>
+												<span className="text-gray-400">
+													{new Date(event.timestamp).toLocaleTimeString()}
+												</span>
+											</div>
+										))}
+								</div>
+							</div>
+						</details>
+					)}
+
+					{/* Emergency Player Removal */}
 					<details className="mt-3">
-						<summary className="cursor-pointer text-sm font-medium text-purple-800 hover:text-purple-600 p-2 bg-white rounded border border-purple-100">
-							📜 Game History ({room.gameHistory.length} events)
+						<summary className="cursor-pointer text-sm font-medium text-red-800 hover:text-red-600 p-2 bg-white rounded border border-red-100">
+							🚨 Emergency Player Removal
 						</summary>
-						<div className="mt-2 p-3 bg-white rounded border border-purple-100 max-h-32 overflow-y-auto">
-							<div className="space-y-1 text-xs">
-								{room.gameHistory
-									.slice(-10) // Show last 10 events
-									.reverse()
-									.map((event, index) => (
+						<div className="mt-2 p-3 bg-white rounded border border-red-100">
+							<p className="text-xs text-gray-600 mb-3">
+								⚠️ Only use if a player needs to leave unexpectedly. This may
+								affect game balance.
+							</p>
+							<div className="space-y-2">
+								{room.players
+									.filter((p) => p.id !== room.leaderId && p.isAlive)
+									.map((player) => (
 										<div
-											key={index}
-											className="flex justify-between items-center text-gray-600"
+											key={player.id}
+											className="flex items-center justify-between p-2 bg-gray-50 rounded"
 										>
-											<span>{event.description}</span>
-											<span className="text-gray-400">
-												{new Date(event.timestamp).toLocaleTimeString()}
-											</span>
+											<div className="flex items-center gap-2">
+												<span className="text-sm font-medium">
+													{player.name}
+												</span>
+												<GameBadge
+													type="role"
+													value={player.role || "citizen"}
+												/>
+											</div>
+											<Button
+												onClick={() =>
+													handleRemovePlayerActive(
+														player.id,
+														player.name,
+														player.role,
+													)
+												}
+												variant="destructive"
+												size="sm"
+												className="text-xs px-2 py-1 h-auto"
+											>
+												Remove
+											</Button>
 										</div>
 									))}
 							</div>
 						</div>
 					</details>
-				)}
-
-				{/* Emergency Player Removal */}
-				<details className="mt-3">
-					<summary className="cursor-pointer text-sm font-medium text-red-800 hover:text-red-600 p-2 bg-white rounded border border-red-100">
-						🚨 Emergency Player Removal
-					</summary>
-					<div className="mt-2 p-3 bg-white rounded border border-red-100">
-						<p className="text-xs text-gray-600 mb-3">
-							⚠️ Only use if a player needs to leave unexpectedly. This may
-							affect game balance.
-						</p>
-						<div className="space-y-2">
-							{room.players
-								.filter((p) => p.id !== room.leaderId && p.isAlive)
-								.map((player) => (
-									<div
-										key={player.id}
-										className="flex items-center justify-between p-2 bg-gray-50 rounded"
-									>
-										<div className="flex items-center gap-2">
-											<span className="text-sm font-medium">{player.name}</span>
-											<span
-												className={`text-xs px-2 py-1 rounded ${
-													player.role === "mafia"
-														? "bg-red-100 text-red-800"
-														: player.role === "detective"
-															? "bg-blue-100 text-blue-800"
-															: player.role === "doctor"
-																? "bg-green-100 text-green-800"
-																: "bg-gray-100 text-gray-800"
-												}`}
-											>
-												{player.role}
-											</span>
-										</div>
-										<button
-											onClick={() =>
-												handleRemovePlayerActive(
-													player.id,
-													player.name,
-													player.role,
-												)
-											}
-											className="text-xs bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded transition-colors"
-										>
-											Remove
-										</button>
-									</div>
-								))}
-						</div>
-					</div>
-				</details>
-			</div>
+				</CardContent>
+			</Card>
 		</div>
 	);
 }
@@ -698,11 +713,11 @@ function PlayerView({
 			<div className="bg-gray-50 p-4 rounded-lg">
 				<h2 className="text-xl font-bold mb-2">Your Role</h2>
 				<div className="flex items-center gap-3">
-					<span
-						className={`px-3 py-2 rounded-lg font-medium ${getRoleColor(currentPlayer.role)}`}
-					>
-						{currentPlayer.role?.toUpperCase()}
-					</span>
+					<GameBadge
+						type="role"
+						value={currentPlayer.role || "citizen"}
+						className="px-3 py-2 font-medium"
+					/>
 					<span className="text-gray-600">
 						{getRoleDescription(currentPlayer.role)}
 					</span>
@@ -738,9 +753,7 @@ function PlayerView({
 							<div key={member.id} className="flex items-center gap-2">
 								<span className="font-medium">{member.name}</span>
 								{member.id === currentPlayer.id && (
-									<span className="text-xs bg-red-500 text-white px-2 py-1 rounded">
-										You
-									</span>
+									<GameBadge type="special" value="You" />
 								)}
 							</div>
 						))}
@@ -798,21 +811,22 @@ function PlayerView({
 					</div>
 					<div className="mt-3 space-y-2">
 						{selectedVoteTarget && (
-							<button
+							<Button
 								onClick={() => handleVote("day")}
 								disabled={isVoting}
-								className="w-full bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-300 text-white py-2 px-4 rounded transition-colors"
+								className="w-full bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-300 text-white"
 							>
 								{isVoting ? "Casting Vote..." : "Vote to Eliminate"}
-							</button>
+							</Button>
 						)}
-						<button
+						<Button
 							onClick={() => handleVoteAbstain("day")}
 							disabled={isVoting}
-							className="w-full bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 text-white py-2 px-4 rounded transition-colors"
+							variant="secondary"
+							className="w-full"
 						>
 							{isVoting ? "Abstaining..." : "Abstain from Voting"}
-						</button>
+						</Button>
 					</div>
 				</div>
 			)}
@@ -865,21 +879,23 @@ function PlayerView({
 					</div>
 					<div className="mt-3 space-y-2">
 						{selectedVoteTarget && (
-							<button
+							<Button
 								onClick={() => handleVote("mafia")}
 								disabled={isVoting}
-								className="w-full bg-red-500 hover:bg-red-600 disabled:bg-red-300 text-white py-2 px-4 rounded transition-colors"
+								variant="destructive"
+								className="w-full"
 							>
 								{isVoting ? "Casting Vote..." : "Vote to Eliminate"}
-							</button>
+							</Button>
 						)}
-						<button
+						<Button
 							onClick={() => handleVoteAbstain("mafia")}
 							disabled={isVoting}
-							className="w-full bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 text-white py-2 px-4 rounded transition-colors"
+							variant="secondary"
+							className="w-full"
 						>
 							{isVoting ? "Abstaining..." : "Abstain from Voting"}
-						</button>
+						</Button>
 					</div>
 				</div>
 			)}
@@ -1016,7 +1032,7 @@ function PlayerView({
 									</div>
 									<div className="mt-3 space-y-2">
 										{selectedTarget && (
-											<button
+											<Button
 												onClick={() =>
 													handleNightAction(
 														currentPlayer.role === "detective"
@@ -1024,15 +1040,15 @@ function PlayerView({
 															: "protect",
 													)
 												}
-												className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded transition-colors"
+												className="w-full"
 											>
 												{currentPlayer.role === "detective"
 													? "Investigate"
 													: "Protect"}{" "}
 												Player
-											</button>
+											</Button>
 										)}
-										<button
+										<Button
 											onClick={() =>
 												handleNightActionAbstain(
 													currentPlayer.role === "detective"
@@ -1040,12 +1056,13 @@ function PlayerView({
 														: "protect",
 												)
 											}
-											className="w-full bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded transition-colors"
+											variant="secondary"
+											className="w-full"
 										>
 											{currentPlayer.role === "detective"
 												? "Don't Investigate Anyone"
 												: "Don't Protect Anyone"}
-										</button>
+										</Button>
 									</div>
 								</>
 							) : (
@@ -1077,19 +1094,12 @@ function PlayerView({
 									<span className="font-medium">{player.name}</span>
 									<div className="flex gap-2">
 										{player.id === currentPlayer.id && (
-											<span className="text-xs bg-blue-500 text-white px-2 py-1 rounded">
-												You
-											</span>
+											<GameBadge type="special" value="You" />
 										)}
-										<span
-											className={`text-xs px-2 py-1 rounded ${
-												player.isAlive
-													? "bg-green-100 text-green-800"
-													: "bg-red-100 text-red-800"
-											}`}
-										>
-											{player.isAlive ? "Alive" : "Dead"}
-										</span>
+										<GameBadge
+											type="status"
+											value={player.isAlive ? "Alive" : "Dead"}
+										/>
 									</div>
 								</div>
 							</div>
@@ -1155,15 +1165,10 @@ function SpectatorView({ room }: { room: Room }) {
 							>
 								<div className="flex items-center justify-between">
 									<span className="font-medium">{player.name}</span>
-									<span
-										className={`text-xs px-2 py-1 rounded ${
-											player.isAlive
-												? "bg-green-100 text-green-800"
-												: "bg-red-100 text-red-800"
-										}`}
-									>
-										{player.isAlive ? "Alive" : "Dead"}
-									</span>
+									<GameBadge
+										type="status"
+										value={player.isAlive ? "Alive" : "Dead"}
+									/>
 								</div>
 							</div>
 						))}

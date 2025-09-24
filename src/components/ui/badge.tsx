@@ -15,6 +15,22 @@ const badgeVariants = cva(
 				destructive:
 					"border-transparent bg-destructive text-destructive-foreground shadow hover:bg-destructive/80",
 				outline: "text-foreground",
+				// Game-specific role variants
+				mafia:
+					"border-transparent bg-red-100 text-red-800 shadow hover:bg-red-200",
+				detective:
+					"border-transparent bg-blue-100 text-blue-800 shadow hover:bg-blue-200",
+				doctor:
+					"border-transparent bg-emerald-100 text-emerald-800 shadow hover:bg-emerald-200",
+				citizen:
+					"border-transparent bg-gray-100 text-gray-800 shadow hover:bg-gray-200",
+				// Status variants
+				leader:
+					"border-transparent bg-yellow-100 text-yellow-800 shadow hover:bg-yellow-200",
+				alive:
+					"border-transparent bg-green-100 text-green-800 shadow hover:bg-green-200",
+				dead: "border-transparent bg-gray-100 text-gray-600 shadow hover:bg-gray-200",
+				you: "border-transparent bg-blue-100 text-blue-800 shadow hover:bg-blue-200",
 			},
 		},
 		defaultVariants: {

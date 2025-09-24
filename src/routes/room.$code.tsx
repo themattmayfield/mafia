@@ -3,6 +3,21 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { ActiveGame } from "~/components/ActiveGame";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+	AlertDialogTrigger,
+} from "~/components/ui/alert-dialog";
+import { Button } from "~/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { GameBadge } from "~/components/ui/game-badge";
+import { Input } from "~/components/ui/input";
 import { getUserId } from "~/utils/user";
 import { api } from "../../convex/_generated/api";
 
@@ -270,82 +285,68 @@ function RoomPage() {
 							</div>
 						);
 					})()}
-					<div className="bg-gray-50 p-6 rounded-xl shadow-sm border">
-						<h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-							🎭 Final Player Results
-						</h3>
-						<div className="grid gap-3">
-							{room.players
-								.filter((player) => player.id !== room.leaderId) // Exclude narrator
-								.sort((a, b) => {
-									// Sort: Survivors first, then by role (mafia first, then special roles)
-									if (a.isAlive !== b.isAlive) return b.isAlive ? 1 : -1;
-									const roleOrder: Record<string, number> = {
-										mafia: 0,
-										detective: 1,
-										doctor: 2,
-										citizen: 3,
-									};
-									return (
-										(roleOrder[a.role || ""] || 3) -
-										(roleOrder[b.role || ""] || 3)
-									);
-								})
-								.map((player) => (
-									<div
-										key={player.id}
-										className={`p-4 rounded-lg border-2 transition-all ${
-											player.isAlive
-												? "bg-gradient-to-r from-green-50 to-green-100 border-green-300 shadow-sm"
-												: "bg-gradient-to-r from-red-50 to-red-100 border-red-300 shadow-sm"
-										}`}
-									>
-										<div className="flex items-center justify-between">
-											<div className="flex items-center gap-3">
-												<div
-													className={`w-3 h-3 rounded-full ${player.isAlive ? "bg-green-500" : "bg-red-500"}`}
-												/>
-												<span className="font-semibold text-gray-800">
-													{player.name}
-												</span>
-											</div>
-											<div className="flex gap-2 items-center">
-												<span
-													className={`text-sm px-3 py-1 rounded-full font-medium ${
-														player.role === "mafia"
-															? "bg-red-200 text-red-900 border border-red-300"
-															: player.role === "detective"
-																? "bg-blue-200 text-blue-900 border border-blue-300"
-																: player.role === "doctor"
-																	? "bg-emerald-200 text-emerald-900 border border-emerald-300"
-																	: "bg-gray-200 text-gray-900 border border-gray-300"
-													}`}
-												>
-													{player.role === "mafia"
-														? "🔪 Mafia"
-														: player.role === "detective"
-															? "🔍 Detective"
-															: player.role === "doctor"
-																? "⚕️ Doctor"
-																: "👥 Citizen"}
-												</span>
-												<span
-													className={`text-sm px-3 py-1 rounded-full font-medium ${
-														player.isAlive
-															? "bg-green-200 text-green-900 border border-green-300"
-															: "bg-red-200 text-red-900 border border-red-300"
-													}`}
-												>
-													{player.isAlive ? "✅ Survived" : "💀 Eliminated"}
-												</span>
-											</div>
-										</div>
-									</div>
-								))}
-						</div>
-					</div>
+					<Card>
+						<CardHeader>
+							<CardTitle className="flex items-center gap-2">
+								🎭 Final Player Results
+							</CardTitle>
+						</CardHeader>
+						<CardContent>
+							<div className="grid gap-3">
+								{room.players
+									.filter((player) => player.id !== room.leaderId) // Exclude narrator
+									.sort((a, b) => {
+										// Sort: Survivors first, then by role (mafia first, then special roles)
+										if (a.isAlive !== b.isAlive) return b.isAlive ? 1 : -1;
+										const roleOrder: Record<string, number> = {
+											mafia: 0,
+											detective: 1,
+											doctor: 2,
+											citizen: 3,
+										};
+										return (
+											(roleOrder[a.role || ""] || 3) -
+											(roleOrder[b.role || ""] || 3)
+										);
+									})
+									.map((player) => (
+										<Card
+											key={player.id}
+											className={`transition-all ${
+												player.isAlive
+													? "bg-gradient-to-r from-green-50 to-green-100 border-green-300"
+													: "bg-gradient-to-r from-red-50 to-red-100 border-red-300"
+											}`}
+										>
+											<CardContent className="p-4">
+												<div className="flex items-center justify-between">
+													<div className="flex items-center gap-3">
+														<div
+															className={`w-3 h-3 rounded-full ${player.isAlive ? "bg-green-500" : "bg-red-500"}`}
+														/>
+														<span className="font-semibold text-gray-800">
+															{player.name}
+														</span>
+													</div>
+													<div className="flex gap-2 items-center">
+														<GameBadge
+															type="role"
+															value={player.role || "citizen"}
+														/>
+														<GameBadge
+															type="status"
+															value={player.isAlive ? "Survived" : "Eliminated"}
+														/>
+													</div>
+												</div>
+											</CardContent>
+										</Card>
+									))}
+							</div>
+						</CardContent>
+					</Card>
 					<div className="flex flex-col sm:flex-row gap-4 justify-center">
-						<button
+						<Button
 							onClick={() => {
 								// Reset the room to waiting state with same players
 								const restartGame = async () => {
@@ -367,17 +368,21 @@ function RoomPage() {
 								};
 								restartGame();
 							}}
-							className="bg-green-500 hover:bg-green-600 text-white px-8 py-3 rounded-xl font-semibold transition-all transform hover:scale-105 shadow-lg flex items-center gap-2"
+							variant="default"
+							size="lg"
+							className="shadow-lg"
 						>
 							🎮 Play Again with Same Players
-						</button>
-						<button
+						</Button>
+						<Button
 							onClick={() => (window.location.href = "/")}
-							className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-3 rounded-xl font-semibold transition-all transform hover:scale-105 shadow-lg flex items-center gap-2"
+							variant="secondary"
+							size="lg"
+							className="shadow-lg"
 						>
 							🏠 Create New Game
-						</button>
-						<button
+						</Button>
+						<Button
 							onClick={() => {
 								const gameData = {
 									winner:
@@ -396,10 +401,12 @@ function RoomPage() {
 								);
 								alert("Game results copied to clipboard!");
 							}}
-							className="bg-purple-500 hover:bg-purple-600 text-white px-8 py-3 rounded-xl font-semibold transition-all transform hover:scale-105 shadow-lg flex items-center gap-2"
+							variant="outline"
+							size="lg"
+							className="shadow-lg"
 						>
 							📋 Copy Results
-						</button>
+						</Button>
 					</div>
 				</div>
 			</div>
@@ -427,22 +434,19 @@ function RoomPage() {
 							{room.players.find((p) => p.id === room.leaderId)?.name ||
 								"Room Creator"}
 						</span>
-						<span className="ml-2 text-xs bg-purple-500 text-white px-2 py-1 rounded">
-							Narrator
-						</span>
+						<GameBadge type="special" value="Narrator" className="ml-2" />
 						{room.leaderId === userId && (
-							<span className="ml-2 text-xs bg-blue-500 text-white px-2 py-1 rounded">
-								You
-							</span>
+							<GameBadge type="special" value="You" className="ml-2" />
 						)}
 					</div>
 					{isLeader && room.status === "waiting" && room.players.length > 0 && (
-						<button
+						<Button
 							onClick={() => setShowTransferModal(true)}
-							className="text-sm bg-purple-500 hover:bg-purple-600 text-white px-3 py-1 rounded transition-colors"
+							variant="outline"
+							size="sm"
 						>
 							Transfer Leadership
-						</button>
+						</Button>
 					)}
 				</div>
 				<p className="text-sm text-purple-600 mt-1">
@@ -460,23 +464,23 @@ function RoomPage() {
 						>
 							Enter your name:
 						</label>
-						<input
+						<Input
 							id="playerName"
 							type="text"
 							value={playerName}
 							onChange={(e) => setPlayerName(e.target.value)}
 							placeholder="Your name"
-							className="w-full p-2 border rounded"
-							onKeyPress={(e) => e.key === "Enter" && handleJoinRoom()}
+							onKeyDown={(e) => e.key === "Enter" && handleJoinRoom()}
 						/>
 					</div>
-					<button
+					<Button
 						onClick={handleJoinRoom}
 						disabled={isJoining || !playerName.trim()}
-						className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white font-semibold py-2 px-4 rounded transition-colors"
+						className="w-full"
+						variant="default"
 					>
 						{isJoining ? "Joining..." : "Join Room"}
-					</button>
+					</Button>
 				</div>
 			)}
 
@@ -503,27 +507,25 @@ function RoomPage() {
 								<div className="flex items-center gap-2">
 									<span className="font-medium">{player.name}</span>
 									{player.id === room.leaderId && (
-										<span className="text-xs bg-yellow-500 text-white px-2 py-1 rounded">
-											Leader
-										</span>
+										<GameBadge type="special" value="Leader" />
 									)}
 									{player.id === userId && (
-										<span className="text-xs bg-blue-500 text-white px-2 py-1 rounded">
-											You
-										</span>
+										<GameBadge type="special" value="You" />
 									)}
 								</div>
 								{isLeader &&
 									player.id !== room.leaderId &&
 									player.id !== userId && (
-										<button
+										<Button
 											onClick={() => handleRemovePlayer(player.id, player.name)}
 											disabled={removingPlayerId === player.id}
-											className="text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded text-sm transition-colors disabled:opacity-50"
+											variant="ghost"
+											size="sm"
+											className="text-red-500 hover:text-red-700 hover:bg-red-50"
 											title={`Remove ${player.name} from game`}
 										>
 											{removingPlayerId === player.id ? "..." : "✕"}
-										</button>
+										</Button>
 									)}
 							</div>
 						))}
@@ -531,59 +533,62 @@ function RoomPage() {
 				</div>
 
 				{isLeader && room.status === "waiting" && (
-					<button
+					<Button
 						onClick={handleStartGame}
 						disabled={isStarting || room.players.length < 3}
-						className="w-full bg-green-500 hover:bg-green-600 disabled:bg-green-300 text-white font-semibold py-2 px-4 rounded transition-colors"
+						className="w-full"
+						variant="default"
+						size="lg"
 					>
 						{isStarting
 							? "Starting..."
 							: room.players.length < 3
 								? `Need ${3 - room.players.length} more players`
 								: "Start Game"}
-					</button>
+					</Button>
 				)}
 
 				{room.status === "active" && (
-					<div className="text-center p-4 bg-green-100 rounded">
-						<h3 className="text-lg font-bold text-green-800">Game Active!</h3>
-						<p className="text-green-600">The mafia game is now in progress.</p>
-					</div>
+					<Card className="text-center bg-green-50 border-green-200">
+						<CardContent className="p-4">
+							<h3 className="text-lg font-bold text-green-800">Game Active!</h3>
+							<p className="text-green-600">
+								The mafia game is now in progress.
+							</p>
+						</CardContent>
+					</Card>
 				)}
 			</div>
 
 			{/* Transfer Leadership Modal */}
-			{showTransferModal && (
-				<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-					<div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
-						<h3 className="text-lg font-bold mb-4">Transfer Leadership</h3>
-						<p className="text-sm text-gray-600 mb-4">
+			<AlertDialog open={showTransferModal} onOpenChange={setShowTransferModal}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Transfer Leadership</AlertDialogTitle>
+						<AlertDialogDescription>
 							Select a player to become the new leader and narrator:
-						</p>
-						<div className="space-y-2 mb-4">
-							{room.players.map((player) => (
-								<button
-									key={player.id}
-									onClick={() => handleTransferLeadership(player.id)}
-									disabled={isTransferring}
-									className="w-full text-left p-3 border rounded hover:bg-gray-50 disabled:opacity-50 transition-colors"
-								>
-									<span className="font-medium">{player.name}</span>
-								</button>
-							))}
-						</div>
-						<div className="flex gap-2">
-							<button
-								onClick={() => setShowTransferModal(false)}
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<div className="space-y-2 my-4">
+						{room.players.map((player) => (
+							<Button
+								key={player.id}
+								onClick={() => handleTransferLeadership(player.id)}
 								disabled={isTransferring}
-								className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 py-2 px-4 rounded transition-colors"
+								variant="outline"
+								className="w-full justify-start"
 							>
-								Cancel
-							</button>
-						</div>
+								<span className="font-medium">{player.name}</span>
+							</Button>
+						))}
 					</div>
-				</div>
-			)}
+					<AlertDialogFooter>
+						<AlertDialogCancel disabled={isTransferring}>
+							Cancel
+						</AlertDialogCancel>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 		</div>
 	);
 }

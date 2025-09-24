@@ -1,0 +1,4 @@
+const tsrStartManifest = () => ({ "routes": { "__root__": { "filePath": "/Users/mattmayfield/Documents/builds/mafia/src/routes/__root.tsx", "children": ["/", "/api/users", "/room/$code"], "preloads": ["/assets/main-j1OiTcpV.js"], "assets": [] }, "/": { "filePath": "/Users/mattmayfield/Documents/builds/mafia/src/routes/index.tsx", "assets": [], "preloads": ["/assets/index-DyhLVosh.js", "/assets/input-Dow8xk_E.js"] }, "/api/users": { "filePath": "/Users/mattmayfield/Documents/builds/mafia/src/routes/api/users.ts", "children": ["/api/users/$userId"] }, "/room/$code": { "filePath": "/Users/mattmayfield/Documents/builds/mafia/src/routes/room.$code.tsx", "assets": [], "preloads": ["/assets/room._code-B3oqmwi9.js", "/assets/input-Dow8xk_E.js"] }, "/api/users/$userId": { "filePath": "/Users/mattmayfield/Documents/builds/mafia/src/routes/api/users.$userId.ts", "parent": "/api/users" } }, "clientEntry": "/assets/main-j1OiTcpV.js" });
+export {
+  tsrStartManifest
+};

@@ -2,6 +2,9 @@ import { useConvexMutation } from "@convex-dev/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import toast from "react-hot-toast";
+import { Button } from "~/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { Input } from "~/components/ui/input";
 import { getUserId } from "~/utils/user";
 import { api } from "../../convex/_generated/api";
 
@@ -45,37 +48,46 @@ function Home() {
 
 	return (
 		<div className="p-8 max-w-md mx-auto">
-			<h3 className="text-2xl font-bold mb-6">Welcome to Mafia Game!</h3>
+			<Card>
+				<CardHeader>
+					<CardTitle className="text-2xl">🎭 Welcome to Mafia Game!</CardTitle>
+				</CardHeader>
+				<CardContent className="space-y-4">
+					<Button
+						onClick={handleCreateRoom}
+						disabled={isCreating}
+						className="w-full"
+						size="lg"
+					>
+						{isCreating ? "Creating..." : "🚀 Create New Room"}
+					</Button>
 
-			<div className="space-y-4">
-				<button
-					onClick={handleCreateRoom}
-					disabled={isCreating}
-					className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white font-semibold py-2 px-4 rounded transition-colors"
-				>
-					{isCreating ? "Creating..." : "Create New Room"}
-				</button>
-
-				{roomLink && (
-					<div className="mt-4 p-4 bg-gray-100 rounded">
-						<p className="text-sm text-gray-600 mb-2">Share this link:</p>
-						<div className="flex gap-2">
-							<input
-								type="text"
-								value={roomLink}
-								readOnly
-								className="flex-1 p-2 border rounded text-sm"
-							/>
-							<button
-								onClick={copyToClipboard}
-								className="bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded text-sm transition-colors"
-							>
-								Copy
-							</button>
-						</div>
-					</div>
-				)}
-			</div>
+					{roomLink && (
+						<Card className="mt-4">
+							<CardContent className="p-4">
+								<p className="text-sm text-muted-foreground mb-2">
+									Share this link:
+								</p>
+								<div className="flex gap-2">
+									<Input
+										type="text"
+										value={roomLink}
+										readOnly
+										className="flex-1 text-sm"
+									/>
+									<Button
+										onClick={copyToClipboard}
+										variant="secondary"
+										size="sm"
+									>
+										📋 Copy
+									</Button>
+								</div>
+							</CardContent>
+						</Card>
+					)}
+				</CardContent>
+			</Card>
 		</div>
 	);
 }
