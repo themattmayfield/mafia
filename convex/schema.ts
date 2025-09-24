@@ -30,7 +30,7 @@ const schema = defineSchema({
 			v.array(
 				v.object({
 					voterId: v.string(),
-					targetId: v.string(),
+					targetId: v.union(v.string(), v.literal("ABSTAIN")),
 					voteType: v.union(v.literal("day"), v.literal("mafia")),
 				}),
 			),
@@ -40,10 +40,12 @@ const schema = defineSchema({
 				v.object({
 					playerId: v.string(),
 					action: v.union(v.literal("investigate"), v.literal("protect")),
-					targetId: v.string(),
+					targetId: v.union(v.string(), v.literal("ABSTAIN")),
+					isLocked: v.optional(v.boolean()),
 				}),
 			),
 		),
+		lastEliminationResult: v.optional(v.string()),
 	}).index("by_code", ["code"]),
 });
 

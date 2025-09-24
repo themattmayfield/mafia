@@ -20,14 +20,16 @@ interface Room {
 	players: Player[];
 	currentVotes?: Array<{
 		voterId: string;
-		targetId: string;
+		targetId: string | "ABSTAIN";
 		voteType: "day" | "mafia";
 	}>;
 	nightActions?: Array<{
 		playerId: string;
 		action: "investigate" | "protect";
-		targetId: string;
+		targetId: string | "ABSTAIN";
+		isLocked?: boolean;
 	}>;
+	lastEliminationResult?: string;
 }
 
 interface ActiveGameProps {
@@ -102,9 +104,66 @@ function NarratorView({ room }: { room: Room }) {
 			});
 			toast.success(`${voteType === "day" ? "Day" : "Mafia"} votes executed`);
 		} catch (error) {
-			toast.error("Failed to execute votes");
+			const errorMessage =
+				error instanceof Error ? error.message : "Failed to execute votes";
+			toast.error(errorMessage);
 			console.error("Error executing votes:", error);
 		}
+	};
+
+	// Helper function to get night actions status
+	const getNightActionsStatus = () => {
+		if (room.gamePhase !== "night") return { complete: true, pending: [] };
+
+		const pending: string[] = [];
+		const actualPlayers = room.players.filter((p) => p.id !== room.leaderId);
+		const aliveMafia = actualPlayers.filter(
+			(p) => p.isAlive && p.role === "mafia",
+		);
+		const aliveDoctor = actualPlayers.find(
+			(p) => p.isAlive && p.role === "doctor",
+		);
+		const aliveDetective = actualPlayers.find(
+			(p) => p.isAlive && p.role === "detective",
+		);
+
+		const currentVotes = room.currentVotes || [];
+		const nightActions = room.nightActions || [];
+
+		// Check mafia votes
+		for (const mafiaPlayer of aliveMafia) {
+			const hasVoted = currentVotes.some(
+				(vote) => vote.voterId === mafiaPlayer.id && vote.voteType === "mafia",
+			);
+			if (!hasVoted) {
+				pending.push(`${mafiaPlayer.name} (Mafia Vote)`);
+			}
+		}
+
+		// Check doctor action
+		if (aliveDoctor) {
+			const hasActed = nightActions.some(
+				(action) =>
+					action.playerId === aliveDoctor.id && action.action === "protect",
+			);
+			if (!hasActed) {
+				pending.push(`${aliveDoctor.name} (Doctor Action)`);
+			}
+		}
+
+		// Check detective action
+		if (aliveDetective) {
+			const hasActed = nightActions.some(
+				(action) =>
+					action.playerId === aliveDetective.id &&
+					action.action === "investigate",
+			);
+			if (!hasActed) {
+				pending.push(`${aliveDetective.name} (Detective Action)`);
+			}
+		}
+
+		return { complete: pending.length === 0, pending };
 	};
 
 	return (
@@ -125,36 +184,50 @@ function NarratorView({ room }: { room: Room }) {
 			<div>
 				<h3 className="text-lg font-semibold mb-3">All Players & Roles</h3>
 				<div className="grid gap-2">
-					{room.players.map((player) => (
-						<div
-							key={player.id}
-							className={`p-3 rounded-lg border ${
-								player.isAlive ? "bg-white" : "bg-gray-100 opacity-60"
-							}`}
-						>
-							<div className="flex items-center justify-between">
-								<span className="font-medium">{player.name}</span>
-								<div className="flex gap-2">
-									<span
-										className={`text-xs px-2 py-1 rounded ${getRoleColor(player.role)}`}
-									>
-										{player.role}
-									</span>
-									<span
-										className={`text-xs px-2 py-1 rounded ${
-											player.isAlive
-												? "bg-green-100 text-green-800"
-												: "bg-red-100 text-red-800"
-										}`}
-									>
-										{player.isAlive ? "Alive" : "Dead"}
-									</span>
+					{room.players
+						.filter((player) => player.id !== room.leaderId) // Exclude narrator
+						.map((player) => (
+							<div
+								key={player.id}
+								className={`p-3 rounded-lg border ${
+									player.isAlive ? "bg-white" : "bg-gray-100 opacity-60"
+								}`}
+							>
+								<div className="flex items-center justify-between">
+									<span className="font-medium">{player.name}</span>
+									<div className="flex gap-2">
+										<span
+											className={`text-xs px-2 py-1 rounded ${getRoleColor(player.role)}`}
+										>
+											{player.role}
+										</span>
+										<span
+											className={`text-xs px-2 py-1 rounded ${
+												player.isAlive
+													? "bg-green-100 text-green-800"
+													: "bg-red-100 text-red-800"
+											}`}
+										>
+											{player.isAlive ? "Alive" : "Dead"}
+										</span>
+									</div>
 								</div>
 							</div>
-						</div>
-					))}
+						))}
 				</div>
 			</div>
+
+			{/* Last Elimination Result */}
+			{room.lastEliminationResult && (
+				<div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
+					<h3 className="text-lg font-semibold text-orange-800 mb-2">
+						Latest Result
+					</h3>
+					<p className="text-sm text-orange-700">
+						{room.lastEliminationResult}
+					</p>
+				</div>
+			)}
 
 			{/* Current Votes */}
 			{room.currentVotes && room.currentVotes.length > 0 && (
@@ -169,8 +242,20 @@ function NarratorView({ room }: { room: Room }) {
 							return (
 								<div key={index} className="text-sm">
 									<span className="font-medium">{voter?.name}</span>
-									<span className="text-blue-600"> voted to eliminate </span>
-									<span className="font-medium">{target?.name}</span>
+									{vote.targetId === "ABSTAIN" ? (
+										<span className="text-gray-600">
+											{" "}
+											abstained from voting
+										</span>
+									) : (
+										<>
+											<span className="text-blue-600">
+												{" "}
+												voted to eliminate{" "}
+											</span>
+											<span className="font-medium">{target?.name}</span>
+										</>
+									)}
 									<span className="text-xs ml-2 px-2 py-1 bg-blue-100 rounded">
 										{vote.voteType}
 									</span>
@@ -180,6 +265,45 @@ function NarratorView({ room }: { room: Room }) {
 					</div>
 				</div>
 			)}
+
+			{/* Night Actions Status */}
+			{room.gamePhase === "night" &&
+				(() => {
+					const nightStatus = getNightActionsStatus();
+					return (
+						<div
+							className={`p-4 rounded-lg border ${
+								nightStatus.complete
+									? "bg-green-50 border-green-200"
+									: "bg-yellow-50 border-yellow-200"
+							}`}
+						>
+							<h3
+								className={`text-lg font-semibold mb-2 ${
+									nightStatus.complete ? "text-green-800" : "text-yellow-800"
+								}`}
+							>
+								Night Actions Status
+							</h3>
+							{nightStatus.complete ? (
+								<p className="text-sm text-green-600">
+									✅ All night actions complete - Ready to execute votes
+								</p>
+							) : (
+								<div>
+									<p className="text-sm text-yellow-600 mb-2">
+										⏳ Waiting for:
+									</p>
+									<ul className="text-sm text-yellow-700 ml-4">
+										{nightStatus.pending.map((pending, index) => (
+											<li key={index}>• {pending}</li>
+										))}
+									</ul>
+								</div>
+							)}
+						</div>
+					);
+				})()}
 
 			{/* Phase Controls */}
 			<div className="bg-gray-50 p-4 rounded-lg">
@@ -204,14 +328,28 @@ function NarratorView({ room }: { room: Room }) {
 							</button>
 						)}
 					{room.gamePhase === "night" &&
-						room.currentVotes?.some((v) => v.voteType === "mafia") && (
-							<button
-								onClick={() => handleExecuteVotes("mafia")}
-								className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded transition-colors"
-							>
-								Execute Mafia Votes
-							</button>
-						)}
+						room.currentVotes?.some((v) => v.voteType === "mafia") &&
+						(() => {
+							const nightStatus = getNightActionsStatus();
+							return (
+								<button
+									onClick={() => handleExecuteVotes("mafia")}
+									disabled={!nightStatus.complete}
+									className={`px-4 py-2 rounded transition-colors text-white ${
+										nightStatus.complete
+											? "bg-red-500 hover:bg-red-600"
+											: "bg-gray-400 cursor-not-allowed"
+									}`}
+									title={
+										nightStatus.complete
+											? "Execute mafia votes"
+											: `Waiting for: ${nightStatus.pending.join(", ")}`
+									}
+								>
+									Execute Mafia Votes
+								</button>
+							);
+						})()}
 					<button
 						onClick={handleEndGame}
 						disabled={isEnding}
@@ -289,6 +427,25 @@ function PlayerView({
 		}
 	};
 
+	const handleVoteAbstain = async (voteType: "day" | "mafia") => {
+		setIsVoting(true);
+		try {
+			await castVoteMutation({
+				code: room.code,
+				voterId: currentPlayer.id,
+				targetId: "ABSTAIN",
+				voteType,
+			});
+			toast.success("Abstained from voting");
+			setSelectedVoteTarget("");
+		} catch (error) {
+			toast.error("Failed to abstain");
+			console.error("Error abstaining from vote:", error);
+		} finally {
+			setIsVoting(false);
+		}
+	};
+
 	const handleNightAction = async (action: "investigate" | "protect") => {
 		if (!selectedTarget) {
 			toast.error("Please select a target");
@@ -309,6 +466,24 @@ function PlayerView({
 		} catch (error) {
 			toast.error(`Failed to ${action}`);
 			console.error(`Error performing ${action}:`, error);
+		}
+	};
+
+	const handleNightActionAbstain = async (
+		action: "investigate" | "protect",
+	) => {
+		try {
+			await performNightActionMutation({
+				code: room.code,
+				playerId: currentPlayer.id,
+				action,
+				targetId: "ABSTAIN",
+			});
+			toast.success(`Chose not to ${action} anyone this night`);
+			setSelectedTarget("");
+		} catch (error) {
+			toast.error(`Failed to abstain from ${action}`);
+			console.error(`Error abstaining from ${action}:`, error);
 		}
 	};
 
@@ -396,7 +571,12 @@ function PlayerView({
 					)}
 					<div className="space-y-2 mt-3">
 						{room.players
-							.filter((p) => p.isAlive && p.id !== currentPlayer.id)
+							.filter(
+								(p) =>
+									p.isAlive &&
+									p.id !== currentPlayer.id &&
+									p.id !== room.leaderId,
+							)
 							.map((player) => (
 								<button
 									key={player.id}
@@ -411,15 +591,24 @@ function PlayerView({
 								</button>
 							))}
 					</div>
-					{selectedVoteTarget && (
+					<div className="mt-3 space-y-2">
+						{selectedVoteTarget && (
+							<button
+								onClick={() => handleVote("day")}
+								disabled={isVoting}
+								className="w-full bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-300 text-white py-2 px-4 rounded transition-colors"
+							>
+								{isVoting ? "Casting Vote..." : "Vote to Eliminate"}
+							</button>
+						)}
 						<button
-							onClick={() => handleVote("day")}
+							onClick={() => handleVoteAbstain("day")}
 							disabled={isVoting}
-							className="w-full mt-3 bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-300 text-white py-2 px-4 rounded transition-colors"
+							className="w-full bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 text-white py-2 px-4 rounded transition-colors"
 						>
-							{isVoting ? "Casting Vote..." : "Vote to Eliminate"}
+							{isVoting ? "Abstaining..." : "Abstain from Voting"}
 						</button>
-					)}
+					</div>
 				</div>
 			)}
 
@@ -451,7 +640,10 @@ function PlayerView({
 					)}
 					<div className="space-y-2 mt-3">
 						{room.players
-							.filter((p) => p.isAlive && p.role !== "mafia")
+							.filter(
+								(p) =>
+									p.isAlive && p.role !== "mafia" && p.id !== room.leaderId,
+							)
 							.map((player) => (
 								<button
 									key={player.id}
@@ -466,15 +658,36 @@ function PlayerView({
 								</button>
 							))}
 					</div>
-					{selectedVoteTarget && (
+					<div className="mt-3 space-y-2">
+						{selectedVoteTarget && (
+							<button
+								onClick={() => handleVote("mafia")}
+								disabled={isVoting}
+								className="w-full bg-red-500 hover:bg-red-600 disabled:bg-red-300 text-white py-2 px-4 rounded transition-colors"
+							>
+								{isVoting ? "Casting Vote..." : "Vote to Eliminate"}
+							</button>
+						)}
 						<button
-							onClick={() => handleVote("mafia")}
+							onClick={() => handleVoteAbstain("mafia")}
 							disabled={isVoting}
-							className="w-full mt-3 bg-red-500 hover:bg-red-600 disabled:bg-red-300 text-white py-2 px-4 rounded transition-colors"
+							className="w-full bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 text-white py-2 px-4 rounded transition-colors"
 						>
-							{isVoting ? "Casting Vote..." : "Vote to Eliminate"}
+							{isVoting ? "Abstaining..." : "Abstain from Voting"}
 						</button>
-					)}
+					</div>
+				</div>
+			)}
+
+			{/* Morning Announcement */}
+			{room.gamePhase === "day" && room.lastEliminationResult && (
+				<div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
+					<h3 className="text-lg font-semibold text-orange-800 mb-2">
+						🌅 Morning Report
+					</h3>
+					<p className="text-sm text-orange-700">
+						{room.lastEliminationResult}
+					</p>
 				</div>
 			)}
 
@@ -521,7 +734,13 @@ function PlayerView({
 								(a) => a.playerId === currentPlayer.id,
 							);
 							return currentAction ? (
-								<div className="bg-blue-100 p-3 rounded border border-blue-300 mb-3">
+								<div
+									className={`p-3 rounded border mb-3 ${
+										currentAction.isLocked
+											? "bg-green-100 border-green-300"
+											: "bg-blue-100 border-blue-300"
+									}`}
+								>
 									<p className="text-sm">
 										You chose to {currentAction.action}:{" "}
 										<span className="font-medium">
@@ -532,9 +751,16 @@ function PlayerView({
 											}
 										</span>
 									</p>
-									<p className="text-xs text-blue-600 mt-1">
-										You can change your action by selecting a different player
-										below.
+									<p
+										className={`text-xs mt-1 ${
+											currentAction.isLocked
+												? "text-green-600"
+												: "text-blue-600"
+										}`}
+									>
+										{currentAction.isLocked
+											? `✓ ${currentAction.action === "investigate" ? "Investigation" : "Protection"} confirmed for this night`
+											: "You can change your action by selecting a different player below."}
 									</p>
 								</div>
 							) : (
@@ -546,49 +772,86 @@ function PlayerView({
 							);
 						})()}
 
-						<div className="space-y-2">
-							{room.players
-								.filter(
-									(p) =>
-										p.isAlive &&
-										(currentPlayer.role === "doctor" ||
-											p.id !== currentPlayer.id),
-								)
-								.map((player) => (
-									<button
-										key={player.id}
-										onClick={() => setSelectedTarget(player.id)}
-										className={`w-full text-left p-2 rounded border transition-colors ${
-											selectedTarget === player.id
-												? "bg-blue-100 border-blue-300"
-												: "bg-white hover:bg-gray-50"
-										}`}
-									>
-										{player.name}
-										{player.id === currentPlayer.id &&
-											currentPlayer.role === "doctor" && (
-												<span className="text-xs text-blue-600 ml-2">
-													(yourself)
-												</span>
-											)}
-									</button>
-								))}
-						</div>
-						{selectedTarget && (
-							<button
-								onClick={() =>
-									handleNightAction(
-										currentPlayer.role === "detective"
-											? "investigate"
-											: "protect",
-									)
-								}
-								className="w-full mt-3 bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded transition-colors"
-							>
-								{currentPlayer.role === "detective" ? "Investigate" : "Protect"}{" "}
-								Player
-							</button>
-						)}
+						{(() => {
+							const currentAction = room.nightActions?.find(
+								(a) => a.playerId === currentPlayer.id,
+							);
+							const isActionLocked = currentAction?.isLocked;
+
+							return !isActionLocked ? (
+								<>
+									<div className="space-y-2">
+										{room.players
+											.filter(
+												(p) =>
+													p.isAlive &&
+													p.id !== room.leaderId &&
+													(currentPlayer.role === "doctor" ||
+														p.id !== currentPlayer.id),
+											)
+											.map((player) => (
+												<button
+													key={player.id}
+													onClick={() => setSelectedTarget(player.id)}
+													className={`w-full text-left p-2 rounded border transition-colors ${
+														selectedTarget === player.id
+															? "bg-blue-100 border-blue-300"
+															: "bg-white hover:bg-gray-50"
+													}`}
+												>
+													{player.name}
+													{player.id === currentPlayer.id &&
+														currentPlayer.role === "doctor" && (
+															<span className="text-xs text-blue-600 ml-2">
+																(yourself)
+															</span>
+														)}
+												</button>
+											))}
+									</div>
+									<div className="mt-3 space-y-2">
+										{selectedTarget && (
+											<button
+												onClick={() =>
+													handleNightAction(
+														currentPlayer.role === "detective"
+															? "investigate"
+															: "protect",
+													)
+												}
+												className="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded transition-colors"
+											>
+												{currentPlayer.role === "detective"
+													? "Investigate"
+													: "Protect"}{" "}
+												Player
+											</button>
+										)}
+										<button
+											onClick={() =>
+												handleNightActionAbstain(
+													currentPlayer.role === "detective"
+														? "investigate"
+														: "protect",
+												)
+											}
+											className="w-full bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded transition-colors"
+										>
+											{currentPlayer.role === "detective"
+												? "Don't Investigate Anyone"
+												: "Don't Protect Anyone"}
+										</button>
+									</div>
+								</>
+							) : (
+								<div className="text-center p-4 bg-gray-100 rounded">
+									<p className="text-sm text-gray-600">
+										Your {currentAction.action} has been confirmed for this
+										night phase.
+									</p>
+								</div>
+							);
+						})()}
 					</div>
 				)}
 
@@ -596,34 +859,36 @@ function PlayerView({
 			<div>
 				<h3 className="text-lg font-semibold mb-3">All Players</h3>
 				<div className="grid gap-2">
-					{room.players.map((player) => (
-						<div
-							key={player.id}
-							className={`p-3 rounded-lg border ${
-								player.isAlive ? "bg-white" : "bg-gray-100 opacity-60"
-							} ${player.id === currentPlayer.id ? "border-blue-300 bg-blue-50" : ""}`}
-						>
-							<div className="flex items-center justify-between">
-								<span className="font-medium">{player.name}</span>
-								<div className="flex gap-2">
-									{player.id === currentPlayer.id && (
-										<span className="text-xs bg-blue-500 text-white px-2 py-1 rounded">
-											You
+					{room.players
+						.filter((player) => player.id !== room.leaderId) // Exclude narrator
+						.map((player) => (
+							<div
+								key={player.id}
+								className={`p-3 rounded-lg border ${
+									player.isAlive ? "bg-white" : "bg-gray-100 opacity-60"
+								} ${player.id === currentPlayer.id ? "border-blue-300 bg-blue-50" : ""}`}
+							>
+								<div className="flex items-center justify-between">
+									<span className="font-medium">{player.name}</span>
+									<div className="flex gap-2">
+										{player.id === currentPlayer.id && (
+											<span className="text-xs bg-blue-500 text-white px-2 py-1 rounded">
+												You
+											</span>
+										)}
+										<span
+											className={`text-xs px-2 py-1 rounded ${
+												player.isAlive
+													? "bg-green-100 text-green-800"
+													: "bg-red-100 text-red-800"
+											}`}
+										>
+											{player.isAlive ? "Alive" : "Dead"}
 										</span>
-									)}
-									<span
-										className={`text-xs px-2 py-1 rounded ${
-											player.isAlive
-												? "bg-green-100 text-green-800"
-												: "bg-red-100 text-red-800"
-										}`}
-									>
-										{player.isAlive ? "Alive" : "Dead"}
-									</span>
+									</div>
 								</div>
 							</div>
-						</div>
-					))}
+						))}
 				</div>
 			</div>
 		</div>
@@ -658,31 +923,45 @@ function SpectatorView({ room }: { room: Room }) {
 				</p>
 			</div>
 
+			{/* Morning Announcement */}
+			{room.gamePhase === "day" && room.lastEliminationResult && (
+				<div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
+					<h3 className="text-lg font-semibold text-orange-800 mb-2">
+						🌅 Morning Report
+					</h3>
+					<p className="text-sm text-orange-700">
+						{room.lastEliminationResult}
+					</p>
+				</div>
+			)}
+
 			{/* All Players */}
 			<div>
 				<h3 className="text-lg font-semibold mb-3">Players</h3>
 				<div className="grid gap-2">
-					{room.players.map((player) => (
-						<div
-							key={player.id}
-							className={`p-3 rounded-lg border ${
-								player.isAlive ? "bg-white" : "bg-gray-100 opacity-60"
-							}`}
-						>
-							<div className="flex items-center justify-between">
-								<span className="font-medium">{player.name}</span>
-								<span
-									className={`text-xs px-2 py-1 rounded ${
-										player.isAlive
-											? "bg-green-100 text-green-800"
-											: "bg-red-100 text-red-800"
-									}`}
-								>
-									{player.isAlive ? "Alive" : "Dead"}
-								</span>
+					{room.players
+						.filter((player) => player.id !== room.leaderId) // Exclude narrator
+						.map((player) => (
+							<div
+								key={player.id}
+								className={`p-3 rounded-lg border ${
+									player.isAlive ? "bg-white" : "bg-gray-100 opacity-60"
+								}`}
+							>
+								<div className="flex items-center justify-between">
+									<span className="font-medium">{player.name}</span>
+									<span
+										className={`text-xs px-2 py-1 rounded ${
+											player.isAlive
+												? "bg-green-100 text-green-800"
+												: "bg-red-100 text-red-800"
+										}`}
+									>
+										{player.isAlive ? "Alive" : "Dead"}
+									</span>
+								</div>
 							</div>
-						</div>
-					))}
+						))}
 				</div>
 			</div>
 		</div>

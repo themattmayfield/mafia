@@ -119,7 +119,11 @@ function RoomPage() {
 				<div className="text-center space-y-6">
 					<h2 className="text-3xl font-bold">Game Over!</h2>
 					{(() => {
-						const alivePlayers = room.players.filter((p) => p.isAlive);
+						// Exclude narrator from win condition display
+						const actualPlayers = room.players.filter(
+							(p) => p.id !== room.leaderId,
+						);
+						const alivePlayers = actualPlayers.filter((p) => p.isAlive);
 						const aliveMafia = alivePlayers.filter((p) => p.role === "mafia");
 						const aliveTownspeople = alivePlayers.filter(
 							(p) => p.role !== "mafia",
@@ -151,44 +155,46 @@ function RoomPage() {
 					<div className="bg-gray-50 p-6 rounded-lg">
 						<h3 className="text-xl font-semibold mb-4">Final Results</h3>
 						<div className="grid gap-3">
-							{room.players.map((player) => (
-								<div
-									key={player.id}
-									className={`p-3 rounded border ${
-										player.isAlive
-											? "bg-green-50 border-green-200"
-											: "bg-red-50 border-red-200"
-									}`}
-								>
-									<div className="flex items-center justify-between">
-										<span className="font-medium">{player.name}</span>
-										<div className="flex gap-2">
-											<span
-												className={`text-xs px-2 py-1 rounded ${
-													player.role === "mafia"
-														? "bg-red-100 text-red-800"
-														: player.role === "detective"
-															? "bg-blue-100 text-blue-800"
-															: player.role === "doctor"
-																? "bg-green-100 text-green-800"
-																: "bg-gray-100 text-gray-800"
-												}`}
-											>
-												{player.role}
-											</span>
-											<span
-												className={`text-xs px-2 py-1 rounded ${
-													player.isAlive
-														? "bg-green-100 text-green-800"
-														: "bg-red-100 text-red-800"
-												}`}
-											>
-												{player.isAlive ? "Survived" : "Eliminated"}
-											</span>
+							{room.players
+								.filter((player) => player.id !== room.leaderId) // Exclude narrator
+								.map((player) => (
+									<div
+										key={player.id}
+										className={`p-3 rounded border ${
+											player.isAlive
+												? "bg-green-50 border-green-200"
+												: "bg-red-50 border-red-200"
+										}`}
+									>
+										<div className="flex items-center justify-between">
+											<span className="font-medium">{player.name}</span>
+											<div className="flex gap-2">
+												<span
+													className={`text-xs px-2 py-1 rounded ${
+														player.role === "mafia"
+															? "bg-red-100 text-red-800"
+															: player.role === "detective"
+																? "bg-blue-100 text-blue-800"
+																: player.role === "doctor"
+																	? "bg-green-100 text-green-800"
+																	: "bg-gray-100 text-gray-800"
+													}`}
+												>
+													{player.role}
+												</span>
+												<span
+													className={`text-xs px-2 py-1 rounded ${
+														player.isAlive
+															? "bg-green-100 text-green-800"
+															: "bg-red-100 text-red-800"
+													}`}
+												>
+													{player.isAlive ? "Survived" : "Eliminated"}
+												</span>
+											</div>
 										</div>
 									</div>
-								</div>
-							))}
+								))}
 						</div>
 					</div>
 					<button

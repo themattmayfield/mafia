@@ -10,13 +10,83 @@ function generateRoomCode(): string {
 	return result;
 }
 
-function checkWinCondition(players: any[]): {
+function areAllNightActionsComplete(room: any): {
+	complete: boolean;
+	pending: string[];
+} {
+	const pending: string[] = [];
+
+	// Only check during night phase
+	if (room.gamePhase !== "night") {
+		return { complete: true, pending: [] };
+	}
+
+	// Get all alive players with roles (excluding narrator)
+	const actualPlayers = room.players.filter((p: any) => p.id !== room.leaderId);
+	const aliveMafia = actualPlayers.filter(
+		(p: any) => p.isAlive && p.role === "mafia",
+	);
+	const aliveDoctor = actualPlayers.find(
+		(p: any) => p.isAlive && p.role === "doctor",
+	);
+	const aliveDetective = actualPlayers.find(
+		(p: any) => p.isAlive && p.role === "detective",
+	);
+
+	const currentVotes = room.currentVotes || [];
+	const nightActions = room.nightActions || [];
+
+	// Check if all alive mafia have voted or abstained
+	for (const mafiaPlayer of aliveMafia) {
+		const hasVoted = currentVotes.some(
+			(vote: any) =>
+				vote.voterId === mafiaPlayer.id && vote.voteType === "mafia",
+		);
+		if (!hasVoted) {
+			pending.push(`${mafiaPlayer.name} (Mafia Vote)`);
+		}
+	}
+
+	// Check if alive doctor has acted or abstained
+	if (aliveDoctor) {
+		const hasActed = nightActions.some(
+			(action: any) =>
+				action.playerId === aliveDoctor.id && action.action === "protect",
+		);
+		if (!hasActed) {
+			pending.push(`${aliveDoctor.name} (Doctor Action)`);
+		}
+	}
+
+	// Check if alive detective has acted or abstained
+	if (aliveDetective) {
+		const hasActed = nightActions.some(
+			(action: any) =>
+				action.playerId === aliveDetective.id &&
+				action.action === "investigate",
+		);
+		if (!hasActed) {
+			pending.push(`${aliveDetective.name} (Detective Action)`);
+		}
+	}
+
+	return { complete: pending.length === 0, pending };
+}
+
+function checkWinCondition(
+	players: any[],
+	narratorId: string,
+): {
 	winner: string | null;
 	gameEnded: boolean;
 } {
-	const alivePlayers = players.filter((p) => p.isAlive);
+	// Only count actual players (exclude narrator from win condition calculations)
+	const actualPlayers = players.filter((p) => p.id !== narratorId);
+	const alivePlayers = actualPlayers.filter((p) => p.isAlive);
 	const aliveMafia = alivePlayers.filter((p) => p.role === "mafia");
-	const aliveTownspeople = alivePlayers.filter((p) => p.role !== "mafia");
+	const aliveTownspeople = alivePlayers.filter(
+		(p) => p.role !== "mafia" && p.role,
+	); // Has a role (not narrator)
 
 	// Mafia wins if they equal or outnumber townspeople
 	if (aliveMafia.length >= aliveTownspeople.length && aliveMafia.length > 0) {
@@ -24,7 +94,7 @@ function checkWinCondition(players: any[]): {
 	}
 
 	// Townspeople win if all mafia are eliminated
-	if (aliveMafia.length === 0) {
+	if (aliveMafia.length === 0 && aliveTownspeople.length > 0) {
 		return { winner: "townspeople", gameEnded: true };
 	}
 
@@ -32,11 +102,15 @@ function checkWinCondition(players: any[]): {
 	return { winner: null, gameEnded: false };
 }
 
-function assignRolesToPlayers(players: any[]): any[] {
-	const shuffledPlayers = [...players].sort(() => Math.random() - 0.5);
+function assignRolesToPlayers(players: any[], narratorId: string): any[] {
+	// Separate narrator from actual players
+	const actualPlayers = players.filter((p) => p.id !== narratorId);
+	const narrator = players.find((p) => p.id === narratorId);
+
+	const shuffledPlayers = [...actualPlayers].sort(() => Math.random() - 0.5);
 	const playerCount = shuffledPlayers.length;
 
-	// Calculate role distribution
+	// Calculate role distribution (only for non-narrator players)
 	const mafiaCount = Math.max(1, Math.floor(playerCount / 4));
 	const hasDetective = playerCount >= 4;
 	const hasDoctor = playerCount >= 5;
@@ -57,12 +131,22 @@ function assignRolesToPlayers(players: any[]): any[] {
 		roles.push("citizen");
 	}
 
-	// Assign roles to players
-	return shuffledPlayers.map((player, index) => ({
+	// Assign roles to players (excluding narrator)
+	const playersWithRoles = shuffledPlayers.map((player, index) => ({
 		...player,
 		role: roles[index],
 		isAlive: true,
 	}));
+
+	// Add narrator back without role (they don't play)
+	if (narrator) {
+		playersWithRoles.push({
+			...narrator,
+			// Narrator gets no role and is not "alive" in game terms
+		});
+	}
+
+	return playersWithRoles;
 }
 
 export const createRoom = mutation({
@@ -181,16 +265,17 @@ export const startGame = mutation({
 			throw new Error("Game cannot be started");
 		}
 
-		// Count actual players (excluding narrator if they're not also a player)
-		const playerCount = room.players.length;
+		// Count actual players (excluding narrator)
+		const actualPlayers = room.players.filter((p) => p.id !== room.leaderId);
+		const playerCount = actualPlayers.length;
 
-		// Need at least 3 players to play, narrator doesn't count unless they're also playing
+		// Need at least 3 actual players to play (narrator doesn't count)
 		if (playerCount < 3) {
 			throw new Error("Need at least 3 players to start the game");
 		}
 
-		// Assign roles to players
-		const playersWithRoles = assignRolesToPlayers(room.players);
+		// Assign roles to players (excluding narrator)
+		const playersWithRoles = assignRolesToPlayers(room.players, room.leaderId);
 
 		await ctx.db.patch(room._id, {
 			status: "active",
@@ -268,9 +353,23 @@ export const advancePhase = mutation({
 		const currentPhase = room.gamePhase || "day";
 		const nextPhase = currentPhase === "day" ? "night" : "day";
 
-		await ctx.db.patch(room._id, {
+		const updateData: any = {
 			gamePhase: nextPhase,
-		});
+		};
+
+		// Clear night actions when transitioning from night to day
+		// This resets the locks for the next night phase
+		if (currentPhase === "night" && nextPhase === "day") {
+			updateData.nightActions = [];
+		}
+
+		// Clear elimination result when transitioning from day to night
+		// So it only shows the most recent elimination
+		if (currentPhase === "day" && nextPhase === "night") {
+			updateData.lastEliminationResult = "";
+		}
+
+		await ctx.db.patch(room._id, updateData);
 
 		return await ctx.db.get(room._id);
 	},
@@ -314,7 +413,7 @@ export const castVote = mutation({
 	args: {
 		code: v.string(),
 		voterId: v.string(),
-		targetId: v.string(),
+		targetId: v.union(v.string(), v.literal("ABSTAIN")),
 		voteType: v.union(v.literal("day"), v.literal("mafia")),
 	},
 	handler: async (ctx, args) => {
@@ -337,10 +436,17 @@ export const castVote = mutation({
 			throw new Error("Only alive players can vote");
 		}
 
-		// Validate target is alive and in the game
-		const target = room.players.find((p) => p.id === args.targetId);
-		if (!target || !target.isAlive) {
-			throw new Error("Can only vote for alive players");
+		// Validate target (allow ABSTAIN or alive players)
+		if (args.targetId !== "ABSTAIN") {
+			const target = room.players.find((p) => p.id === args.targetId);
+			if (!target || !target.isAlive) {
+				throw new Error("Can only vote for alive players");
+			}
+
+			// Cannot vote for the narrator
+			if (args.targetId === room.leaderId) {
+				throw new Error("Cannot vote against the narrator");
+			}
 		}
 
 		// Validate vote type matches current phase
@@ -406,6 +512,16 @@ export const executeVotes = mutation({
 			throw new Error("Game must be active to execute votes");
 		}
 
+		// Check if all night actions are complete (only for mafia votes)
+		if (args.voteType === "mafia") {
+			const actionStatus = areAllNightActionsComplete(room);
+			if (!actionStatus.complete) {
+				throw new Error(
+					`Cannot execute mafia votes. Still waiting for: ${actionStatus.pending.join(", ")}`,
+				);
+			}
+		}
+
 		const currentVotes = room.currentVotes || [];
 		const relevantVotes = currentVotes.filter(
 			(vote) => vote.voteType === args.voteType,
@@ -431,9 +547,47 @@ export const executeVotes = mutation({
 			}
 		}
 
-		// Eliminate the player with the most votes
+		// Check for doctor protection (only applies to mafia eliminations)
+		let actualEliminatedPlayerId = eliminatedPlayerId;
+		let eliminationResult = "";
+
+		if (args.voteType === "mafia" && eliminatedPlayerId) {
+			// Find doctor protection for this night
+			const doctorProtection = room.nightActions?.find(
+				(action) => action.action === "protect" && action.isLocked,
+			);
+
+			// Check if the doctor protected the mafia's target
+			if (
+				doctorProtection &&
+				doctorProtection.targetId === eliminatedPlayerId
+			) {
+				actualEliminatedPlayerId = ""; // No elimination due to protection
+				const protectedPlayer = room.players.find(
+					(p) => p.id === eliminatedPlayerId,
+				);
+				const doctor = room.players.find(
+					(p) => p.id === doctorProtection.playerId,
+				);
+				eliminationResult = `The mafia attempted to eliminate ${protectedPlayer?.name}, but they were protected by the doctor.`;
+			} else {
+				const eliminatedPlayer = room.players.find(
+					(p) => p.id === eliminatedPlayerId,
+				);
+				eliminationResult = `${eliminatedPlayer?.name} was eliminated by the mafia.`;
+			}
+		} else if (args.voteType === "day" && eliminatedPlayerId) {
+			const eliminatedPlayer = room.players.find(
+				(p) => p.id === eliminatedPlayerId,
+			);
+			eliminationResult = `${eliminatedPlayer?.name} was eliminated by majority vote.`;
+		}
+
+		// Eliminate the player (if not protected)
 		const updatedPlayers = room.players.map((player) =>
-			player.id === eliminatedPlayerId ? { ...player, isAlive: false } : player,
+			actualEliminatedPlayerId && player.id === actualEliminatedPlayerId
+				? { ...player, isAlive: false }
+				: player,
 		);
 
 		// Clear votes of the executed type
@@ -442,11 +596,12 @@ export const executeVotes = mutation({
 		);
 
 		// Check win condition
-		const winCondition = checkWinCondition(updatedPlayers);
+		const winCondition = checkWinCondition(updatedPlayers, room.leaderId);
 
 		const updateData: any = {
 			players: updatedPlayers,
 			currentVotes: remainingVotes,
+			lastEliminationResult: eliminationResult,
 		};
 
 		// End game if win condition is met
@@ -465,7 +620,7 @@ export const performNightAction = mutation({
 		code: v.string(),
 		playerId: v.string(),
 		action: v.union(v.literal("investigate"), v.literal("protect")),
-		targetId: v.string(),
+		targetId: v.union(v.string(), v.literal("ABSTAIN")),
 	},
 	handler: async (ctx, args) => {
 		const room = await ctx.db
@@ -498,31 +653,51 @@ export const performNightAction = mutation({
 			throw new Error("Only doctors can protect");
 		}
 
-		// Validate target is alive and in the game
-		const target = room.players.find((p) => p.id === args.targetId);
-		if (!target || !target.isAlive) {
-			throw new Error("Can only target alive players");
-		}
+		// Validate target (allow ABSTAIN or alive players)
+		if (args.targetId !== "ABSTAIN") {
+			const target = room.players.find((p) => p.id === args.targetId);
+			if (!target || !target.isAlive) {
+				throw new Error("Can only target alive players");
+			}
 
-		// Detectives can't investigate themselves, doctors can protect themselves
-		if (args.action === "investigate" && args.playerId === args.targetId) {
-			throw new Error("Detectives cannot investigate themselves");
+			// Cannot target the narrator
+			if (args.targetId === room.leaderId) {
+				throw new Error("Cannot target the narrator");
+			}
+
+			// Detectives can't investigate themselves, doctors can protect themselves
+			if (args.action === "investigate" && args.playerId === args.targetId) {
+				throw new Error("Detectives cannot investigate themselves");
+			}
 		}
 
 		const currentActions = room.nightActions || [];
+
+		// Check if player already has a locked action
+		const existingAction = currentActions.find(
+			(action) =>
+				action.playerId === args.playerId && action.action === args.action,
+		);
+
+		if (existingAction && existingAction.isLocked) {
+			throw new Error(
+				`${args.action === "investigate" ? "Detective" : "Doctor"} has already performed their ${args.action} for this night`,
+			);
+		}
 
 		// Remove any existing action from this player
 		const filteredActions = currentActions.filter(
 			(action) => action.playerId !== args.playerId,
 		);
 
-		// Add the new action
+		// Add the new action and lock it immediately
 		const newActions = [
 			...filteredActions,
 			{
 				playerId: args.playerId,
 				action: args.action,
 				targetId: args.targetId,
+				isLocked: true, // Lock the action immediately
 			},
 		];
 
