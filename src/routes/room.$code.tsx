@@ -1,10 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { api } from "../../convex/_generated/api";
 import { useConvexMutation, useConvexQuery } from "@convex-dev/react-query";
-import { useState, useEffect } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import { getUserId } from "~/utils/user";
 import { ActiveGame } from "~/components/ActiveGame";
+import { getUserId } from "~/utils/user";
+import { api } from "../../convex/_generated/api";
 
 export const Route = createFileRoute("/room/$code")({
 	component: RoomPage,
@@ -18,6 +18,7 @@ function RoomPage() {
 	const [isStarting, setIsStarting] = useState(false);
 	const [showTransferModal, setShowTransferModal] = useState(false);
 	const [isTransferring, setIsTransferring] = useState(false);
+	const [removingPlayerId, setRemovingPlayerId] = useState<string | null>(null);
 
 	const userId = getUserId();
 
@@ -27,6 +28,7 @@ function RoomPage() {
 	const transferLeadershipMutation = useConvexMutation(
 		api.rooms.transferLeadership,
 	);
+	const removePlayerMutation = useConvexMutation(api.rooms.removePlayer);
 
 	const isLeader = room?.leaderId === userId;
 	const isInRoom = room?.players.some((p) => p.id === userId) || false;
@@ -91,6 +93,36 @@ function RoomPage() {
 			console.error("Error transferring leadership:", error);
 		} finally {
 			setIsTransferring(false);
+		}
+	};
+
+	const handleRemovePlayer = async (
+		playerIdToRemove: string,
+		playerName: string,
+	) => {
+		if (!userId || !isLeader) return;
+
+		const confirmed = confirm(
+			`Are you sure you want to remove ${playerName} from the game?`,
+		);
+
+		if (!confirmed) return;
+
+		try {
+			setRemovingPlayerId(playerIdToRemove);
+			await removePlayerMutation({
+				code,
+				leaderId: userId,
+				playerIdToRemove,
+			});
+		} catch (error) {
+			console.error("Failed to remove player:", error);
+			alert(
+				"Failed to remove player: " +
+					(error instanceof Error ? error.message : "Unknown error"),
+			);
+		} finally {
+			setRemovingPlayerId(null);
 		}
 	};
 
@@ -462,23 +494,37 @@ function RoomPage() {
 						{room.players.map((player) => (
 							<div
 								key={player.id}
-								className={`p-2 rounded ${
+								className={`p-2 rounded flex items-center justify-between ${
 									player.id === room.leaderId
 										? "bg-yellow-100 border-yellow-300 border"
 										: "bg-gray-100"
 								}`}
 							>
-								<span className="font-medium">{player.name}</span>
-								{player.id === room.leaderId && (
-									<span className="ml-2 text-xs bg-yellow-500 text-white px-2 py-1 rounded">
-										Leader
-									</span>
-								)}
-								{player.id === userId && (
-									<span className="ml-2 text-xs bg-blue-500 text-white px-2 py-1 rounded">
-										You
-									</span>
-								)}
+								<div className="flex items-center gap-2">
+									<span className="font-medium">{player.name}</span>
+									{player.id === room.leaderId && (
+										<span className="text-xs bg-yellow-500 text-white px-2 py-1 rounded">
+											Leader
+										</span>
+									)}
+									{player.id === userId && (
+										<span className="text-xs bg-blue-500 text-white px-2 py-1 rounded">
+											You
+										</span>
+									)}
+								</div>
+								{isLeader &&
+									player.id !== room.leaderId &&
+									player.id !== userId && (
+										<button
+											onClick={() => handleRemovePlayer(player.id, player.name)}
+											disabled={removingPlayerId === player.id}
+											className="text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded text-sm transition-colors disabled:opacity-50"
+											title={`Remove ${player.name} from game`}
+										>
+											{removingPlayerId === player.id ? "..." : "✕"}
+										</button>
+									)}
 							</div>
 						))}
 					</div>

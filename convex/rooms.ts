@@ -1,5 +1,5 @@
-import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { mutation, query } from "./_generated/server";
 
 function generateRoomCode(): string {
 	const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -238,6 +238,98 @@ export const joinRoom = mutation({
 			await ctx.db.patch(room._id, { players: updatedPlayers });
 		}
 
+		return await ctx.db.get(room._id);
+	},
+});
+
+export const removePlayer = mutation({
+	args: {
+		code: v.string(),
+		leaderId: v.string(),
+		playerIdToRemove: v.string(),
+	},
+	handler: async (ctx, args) => {
+		const room = await ctx.db
+			.query("rooms")
+			.withIndex("by_code", (q) => q.eq("code", args.code))
+			.first();
+
+		if (!room) {
+			throw new Error("Room not found");
+		}
+
+		// Verify the requester is the leader
+		if (room.leaderId !== args.leaderId) {
+			throw new Error("Only the leader can remove players");
+		}
+
+		// Prevent leader from removing themselves
+		if (args.playerIdToRemove === args.leaderId) {
+			throw new Error("Leader cannot remove themselves");
+		}
+
+		// Find the player to remove
+		const playerToRemove = room.players.find(
+			(p) => p.id === args.playerIdToRemove,
+		);
+		if (!playerToRemove) {
+			throw new Error("Player not found");
+		}
+
+		// Remove the player from the list
+		const updatedPlayers = room.players.filter(
+			(p) => p.id !== args.playerIdToRemove,
+		);
+
+		// Check minimum player count for active games
+		if (room.status === "active") {
+			const actualPlayers = updatedPlayers.filter(
+				(p) => p.id !== room.leaderId,
+			);
+			if (actualPlayers.length < 3) {
+				throw new Error(
+					"Cannot remove player - minimum 3 players required for active game",
+				);
+			}
+		}
+
+		const updateData: any = {
+			players: updatedPlayers,
+		};
+
+		// Handle active game specific logic
+		if (room.status === "active") {
+			// Remove any votes cast by or for this player
+			const cleanedVotes = (room.currentVotes || []).filter(
+				(vote) =>
+					vote.voterId !== args.playerIdToRemove &&
+					vote.targetId !== args.playerIdToRemove,
+			);
+			updateData.currentVotes = cleanedVotes;
+
+			// Remove any night actions by this player
+			const cleanedNightActions = (room.nightActions || []).filter(
+				(action) => action.playerId !== args.playerIdToRemove,
+			);
+			updateData.nightActions = cleanedNightActions;
+
+			// Check win condition after removal
+			const winCondition = checkWinCondition(updatedPlayers, room.leaderId);
+			if (winCondition.gameEnded) {
+				updateData.status = "finished";
+			}
+
+			// Add to game history
+			const gameHistory = room.gameHistory || [];
+			gameHistory.push({
+				timestamp: Date.now(),
+				event: "player_removed",
+				description: `${playerToRemove.name} was removed from the game`,
+			});
+			updateData.gameHistory = gameHistory;
+		}
+
+		await ctx.db.patch(room._id, updateData);
 		return await ctx.db.get(room._id);
 	},
 });

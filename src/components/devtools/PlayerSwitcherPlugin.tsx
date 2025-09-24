@@ -1,10 +1,10 @@
-import { useState } from "react";
-import { useConvexQuery, useConvexMutation } from "@convex-dev/react-query";
-import { api } from "../../../convex/_generated/api";
-import { getUserId, setUserId } from "~/utils/user";
-import { useRouter } from "@tanstack/react-router";
-import toast from "react-hot-toast";
+import { useConvexMutation, useConvexQuery } from "@convex-dev/react-query";
 import { faker } from "@faker-js/faker";
+import { useRouter } from "@tanstack/react-router";
+import { useState } from "react";
+import toast from "react-hot-toast";
+import { getUserId, setUserId } from "~/utils/user";
+import { api } from "../../../convex/_generated/api";
 
 export function PlayerSwitcherPlugin() {
 	const router = useRouter();

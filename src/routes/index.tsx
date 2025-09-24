@@ -1,9 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { api } from "../../convex/_generated/api";
 import { useConvexMutation } from "@convex-dev/react-query";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import toast from "react-hot-toast";
 import { getUserId } from "~/utils/user";
+import { api } from "../../convex/_generated/api";
 
 export const Route = createFileRoute("/")({
 	component: Home,

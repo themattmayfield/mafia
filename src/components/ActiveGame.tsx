@@ -1,8 +1,8 @@
-import { useState } from "react";
-import { getUserId } from "~/utils/user";
 import { useConvexMutation, useConvexQuery } from "@convex-dev/react-query";
-import { api } from "../../convex/_generated/api";
+import { useState } from "react";
 import toast from "react-hot-toast";
+import { getUserId } from "~/utils/user";
+import { api } from "../../convex/_generated/api";
 
 interface Player {
 	id: string;
@@ -67,6 +67,7 @@ function NarratorView({ room }: { room: Room }) {
 	const advancePhaseMutation = useConvexMutation(api.rooms.advancePhase);
 	const endGameMutation = useConvexMutation(api.rooms.endGame);
 	const executeVotesMutation = useConvexMutation(api.rooms.executeVotes);
+	const removePlayerMutation = useConvexMutation(api.rooms.removePlayer);
 
 	const handleAdvancePhase = async () => {
 		setIsAdvancing(true);
@@ -114,6 +115,59 @@ function NarratorView({ room }: { room: Room }) {
 				error instanceof Error ? error.message : "Failed to execute votes";
 			toast.error(errorMessage);
 			console.error("Error executing votes:", error);
+		}
+	};
+
+	const handleRemovePlayerActive = async (
+		playerIdToRemove: string,
+		playerName: string,
+		playerRole?: string,
+	) => {
+		if (!userId) return;
+
+		let roleWarning = "";
+		let balanceImpact = "";
+
+		switch (playerRole) {
+			case "mafia":
+				roleWarning =
+					"⚠️ Removing a Mafia member will help the townspeople win.";
+				balanceImpact = "This significantly favors the townspeople.";
+				break;
+			case "detective":
+				roleWarning =
+					"⚠️ Removing the Detective eliminates the townspeople's investigation ability.";
+				balanceImpact = "This significantly favors the Mafia.";
+				break;
+			case "doctor":
+				roleWarning =
+					"⚠️ Removing the Doctor eliminates the townspeople's protection ability.";
+				balanceImpact = "This significantly favors the Mafia.";
+				break;
+			case "citizen":
+				roleWarning = "Removing a Citizen reduces townspeople numbers.";
+				balanceImpact = "This may slightly favor the Mafia.";
+				break;
+		}
+
+		const confirmed = confirm(
+			`Are you sure you want to remove ${playerName} (${playerRole}) from the active game?\n\n${roleWarning}\n${balanceImpact}\n\nThis action cannot be undone.`,
+		);
+
+		if (!confirmed) return;
+
+		try {
+			await removePlayerMutation({
+				code: room.code,
+				leaderId: userId,
+				playerIdToRemove,
+			});
+			toast.success(`${playerName} has been removed from the game`);
+		} catch (error) {
+			const errorMessage =
+				error instanceof Error ? error.message : "Failed to remove player";
+			toast.error(errorMessage);
+			console.error("Error removing player:", error);
 		}
 	};
 
@@ -461,6 +515,58 @@ function NarratorView({ room }: { room: Room }) {
 						</div>
 					</details>
 				)}
+
+				{/* Emergency Player Removal */}
+				<details className="mt-3">
+					<summary className="cursor-pointer text-sm font-medium text-red-800 hover:text-red-600 p-2 bg-white rounded border border-red-100">
+						🚨 Emergency Player Removal
+					</summary>
+					<div className="mt-2 p-3 bg-white rounded border border-red-100">
+						<p className="text-xs text-gray-600 mb-3">
+							⚠️ Only use if a player needs to leave unexpectedly. This may
+							affect game balance.
+						</p>
+						<div className="space-y-2">
+							{room.players
+								.filter((p) => p.id !== room.leaderId && p.isAlive)
+								.map((player) => (
+									<div
+										key={player.id}
+										className="flex items-center justify-between p-2 bg-gray-50 rounded"
+									>
+										<div className="flex items-center gap-2">
+											<span className="text-sm font-medium">{player.name}</span>
+											<span
+												className={`text-xs px-2 py-1 rounded ${
+													player.role === "mafia"
+														? "bg-red-100 text-red-800"
+														: player.role === "detective"
+															? "bg-blue-100 text-blue-800"
+															: player.role === "doctor"
+																? "bg-green-100 text-green-800"
+																: "bg-gray-100 text-gray-800"
+												}`}
+											>
+												{player.role}
+											</span>
+										</div>
+										<button
+											onClick={() =>
+												handleRemovePlayerActive(
+													player.id,
+													player.name,
+													player.role,
+												)
+											}
+											className="text-xs bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded transition-colors"
+										>
+											Remove
+										</button>
+									</div>
+								))}
+						</div>
+					</div>
+				</details>
 			</div>
 		</div>
 	);
